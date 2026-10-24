@@ -1,0 +1,178 @@
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+body, html { width: 100%; height: 100%; overflow: hidden; background-color: #050608; font-family: 'Space Grotesk', sans-serif; color: #F8FAFC; letter-spacing: -0.01em; }
+
+/* Карти */
+#map, #globe-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: #050608; }
+.custom-pin { background: transparent; border: none; }
+
+.leaflet-control-zoom { border: none !important; margin-right: 24px !important; margin-bottom: 54px !important; display: flex; flex-direction: column; gap: 8px; }
+.leaflet-control-zoom a { background: rgba(16, 18, 24, 0.92) !important; color: #FFFFFF !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; border-radius: 12px !important; backdrop-filter: blur(20px); font-family: 'Space Grotesk', sans-serif !important; font-weight: 600 !important; width: 38px !important; height: 38px !important; line-height: 36px !important; }
+.leaflet-control-attribution { display: none; }
+
+/* Верхній блок керування */
+.hud-top { position: absolute; top: 18px; left: 18px; right: 18px; z-index: 1000; display: flex; justify-content: space-between; align-items: center; pointer-events: none; gap: 12px; }
+.search-box { position: relative; display: flex; align-items: center; background: rgba(14, 17, 23, 0.94); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 9999px; padding: 4px 6px; width: 320px; pointer-events: auto; backdrop-filter: blur(25px); transition: border-color 0.2s, box-shadow 0.2s; }
+.search-box:focus-within { border-color: rgba(0, 240, 255, 0.6); box-shadow: 0 0 16px rgba(0, 240, 255, 0.2); }
+.search-box input { flex: 1; background: transparent; border: none; outline: none; padding: 8px 14px; color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; }
+.search-box input::placeholder { color: #64748B; }
+.search-box button { background: #FFFFFF; color: #000000; padding: 8px 16px; border-radius: 9999px; border: none; cursor: pointer; font-weight: 700; font-size: 0.74rem; transition: 0.2s; white-space: nowrap; }
+.search-box button:hover { background: #00F0FF; color: #000; }
+
+.view-toggles { display: flex; gap: 8px; pointer-events: auto; flex-wrap: wrap; }
+.btn-toggle { background: rgba(14, 17, 23, 0.94); color: #94A3B8; border: 1px solid rgba(255, 255, 255, 0.18); padding: 9px 16px; border-radius: 9999px; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 0.74rem; font-weight: 700; backdrop-filter: blur(25px); transition: 0.3s; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.btn-toggle:hover { border-color: rgba(255, 255, 255, 0.4); color: #FFFFFF; }
+.btn-toggle.active { background: #FFFFFF; color: #000000; border-color: #FFFFFF; }
+.btn-toggle.active-danger { background: rgba(255, 46, 56, 0.18); color: #FF2E38; border-color: #FF2E38; box-shadow: 0 0 15px rgba(255, 46, 56, 0.35); }
+.btn-toggle.active-danger.active { background: #FF2E38; color: #FFFFFF; }
+.btn-toggle.active-safe { background: rgba(0, 255, 170, 0.18); color: #00FFAA; border-color: #00FFAA; box-shadow: 0 0 15px rgba(0, 255, 170, 0.35); }
+.btn-toggle.active-safe.active { background: #00FFAA; color: #000000; }
+.btn-toggle.inactive { opacity: 0.55; background: rgba(14, 17, 23, 0.6); color: #64748B; border-color: rgba(255, 255, 255, 0.08); }
+
+.btn-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dot-red { background: #FF2E38; box-shadow: 0 0 8px #FF2E38; }
+.dot-green { background: #00FFAA; box-shadow: 0 0 8px #00FFAA; }
+.dot-muted { background: #64748B; }
+
+.nothing-status-pill { display: flex; align-items: center; gap: 10px; background: rgba(14, 17, 23, 0.94); border: 1px solid rgba(255, 255, 255, 0.18); padding: 9px 18px; border-radius: 9999px; font-family: 'Silkscreen', monospace; font-size: 0.72rem; color: #FFFFFF; pointer-events: auto; backdrop-filter: blur(25px); white-space: nowrap; }
+.nothing-red-dot { width: 7px; height: 7px; background: #FF2E38; border-radius: 50%; box-shadow: 0 0 10px #FF2E38; }
+
+/* Вікно попередження (Warning Toast) */
+.warning-toast { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(15, 5, 5, 0.95); border: 1px solid #FF2E38; color: #FF2E38; padding: 12px 24px; border-radius: 9999px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.85rem; box-shadow: 0 8px 32px rgba(255, 46, 56, 0.4); z-index: 2000; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.3s; pointer-events: none; backdrop-filter: blur(20px); max-width: 90vw; text-align: center; }
+.warning-toast.show { opacity: 1; }
+.warning-toast .icon { font-family: 'Space Mono'; font-size: 1.2rem; background: #FF2E38; color: #000; padding: 2px 8px; border-radius: 50%; }
+
+/* Бічна панель */
+.sidebar-toggle { position: absolute; top: 80px; left: 420px; z-index: 1001; background: rgba(13, 16, 22, 0.94); border: 1px solid rgba(255, 255, 255, 0.15); color: #FFF; width: 36px; height: 48px; border-radius: 0 12px 12px 0; cursor: pointer; backdrop-filter: blur(32px); font-size: 1rem; transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.hud-sidebar { position: absolute; top: 80px; left: 18px; width: 395px; max-height: calc(100vh - 148px); background: rgba(13, 16, 22, 0.94); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 24px; padding: 20px; z-index: 1000; backdrop-filter: blur(32px); overflow-y: auto; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 16px 48px rgba(0,0,0,0.8); }
+.hud-sidebar::-webkit-scrollbar { width: 5px; }
+.hud-sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 9999px; }
+.hud-sidebar.collapsed { transform: translateX(-110%); }
+.sidebar-toggle.collapsed { left: 18px; border-radius: 12px; }
+
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.dot-title { font-family: 'Silkscreen', monospace; font-size: 0.9rem; letter-spacing: 0.05em; }
+.nothing-badge { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #00FFAA; font-weight: 700; }
+.panel-desc { font-size: 0.76rem; color: #A1A1AA; line-height: 1.5; margin-bottom: 14px; }
+
+.point-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.p-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 10px 14px; }
+.p-label { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 0.72rem; color: #94A3B8; margin-bottom: 4px; }
+.pin { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font-size: 0.65rem; font-weight: 800; }
+.pin-a { background: #00F0FF; color: #000; box-shadow: 0 0 8px rgba(0, 240, 255, 0.6); }
+.pin-b { background: #FF2E38; color: #FFF; box-shadow: 0 0 8px rgba(255, 46, 56, 0.6); }
+.p-value { font-family: 'Space Mono', monospace; font-size: 0.8rem; font-weight: 600; color: #FFFFFF; }
+
+.action-buttons { display: flex; gap: 8px; margin-bottom: 16px; }
+.btn-main { flex: 2; background: #FF2E38; color: #FFF; border: none; padding: 12px; border-radius: 9999px; cursor: pointer; font-weight: 700; font-size: 0.76rem; transition: 0.2s; box-shadow: 0 4px 18px rgba(255, 46, 56, 0.4); }
+.btn-main:hover { background: #ff4852; }
+.btn-sub { flex: 1; background: rgba(255, 255, 255, 0.08); color: #E2E8F0; border: 1px solid rgba(255, 255, 255, 0.15); padding: 12px; border-radius: 9999px; cursor: pointer; font-weight: 600; font-size: 0.74rem; transition: 0.2s; }
+.btn-sub:hover { background: rgba(255, 255, 255, 0.15); color: #FFF; }
+
+/* Блок керування зонами та шарами */
+.zones-panel-section { border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 14px; margin-bottom: 16px; }
+.section-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.zone-total-counter { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #00FFAA; font-weight: 700; background: rgba(0, 255, 170, 0.1); padding: 2px 8px; border-radius: 9999px; border: 1px solid rgba(0, 255, 170, 0.3); }
+
+.visibility-switches { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.zone-switch-card { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 14px; padding: 9px 12px; transition: 0.2s; }
+.zone-switch-card.hazard-card { border-left: 3px solid #FF2E38; }
+.zone-switch-card.safe-card { border-left: 3px solid #00FFAA; }
+.zone-switch-card:hover { background: rgba(255, 255, 255, 0.07); }
+.switch-info { display: flex; flex-direction: column; gap: 2px; }
+.zone-indicator-pill { font-size: 0.72rem; font-weight: 700; }
+.red-pill { color: #FF2E38; }
+.green-pill { color: #00FFAA; }
+.switch-subtext { font-size: 0.65rem; color: #64748B; }
+
+.switch-btn { width: 42px; height: 22px; border-radius: 9999px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); cursor: pointer; position: relative; transition: background 0.25s, border-color 0.25s, box-shadow 0.25s; padding: 0; outline: none; }
+.switch-knob { width: 16px; height: 16px; border-radius: 50%; background: #94A3B8; position: absolute; top: 2px; left: 2px; transition: transform 0.25s, background 0.25s; }
+.switch-btn.active.hazard-switch { background: #FF2E38; border-color: #FF2E38; box-shadow: 0 0 10px rgba(255, 46, 56, 0.5); }
+.switch-btn.active.safe-switch { background: #00FFAA; border-color: #00FFAA; box-shadow: 0 0 10px rgba(0, 255, 170, 0.5); }
+.switch-btn.active .switch-knob { transform: translateX(20px); background: #FFFFFF; }
+.switch-btn.active.safe-switch .switch-knob { background: #000000; }
+
+/* Зони Марса - Explorer */
+.zone-explorer { background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 10px; }
+.zone-filter-tabs { display: flex; gap: 4px; margin-bottom: 8px; background: rgba(0, 0, 0, 0.5); padding: 3px; border-radius: 9999px; }
+.z-tab { flex: 1; background: transparent; border: none; color: #94A3B8; font-family: 'Space Grotesk', sans-serif; font-size: 0.65rem; font-weight: 700; padding: 6px 4px; border-radius: 9999px; cursor: pointer; transition: 0.2s; text-align: center; }
+.z-tab.active { background: rgba(255, 255, 255, 0.15); color: #FFFFFF; }
+.z-tab[data-filter="hazard"].active { background: rgba(255, 46, 56, 0.25); color: #FF2E38; }
+.z-tab[data-filter="safe"].active { background: rgba(0, 255, 170, 0.25); color: #00FFAA; }
+
+.zone-quick-search { margin-bottom: 8px; }
+.zone-quick-search input { width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 6px 10px; font-family: 'Space Grotesk', sans-serif; font-size: 0.72rem; color: #FFFFFF; outline: none; }
+.zone-quick-search input:focus { border-color: rgba(0, 240, 255, 0.5); }
+.zone-quick-search input::placeholder { color: #64748B; }
+
+.zones-scroll-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.zones-scroll-list::-webkit-scrollbar { width: 4px; }
+.zones-scroll-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 9999px; }
+
+.zone-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; padding: 8px 10px; cursor: pointer; transition: 0.2s; position: relative; }
+.zone-item:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+.zone-item.hazard-item { border-left: 2px solid #FF2E38; }
+.zone-item.safe-item { border-left: 2px solid #00FFAA; }
+.zone-item-head { display: flex; justify-content: space-between; align-items: center; }
+.zone-item-title { font-weight: 700; font-size: 0.74rem; color: #FFFFFF; display: flex; align-items: center; gap: 5px; }
+.zone-item-btn { font-size: 0.65rem; color: #00F0FF; font-weight: 700; background: rgba(0, 240, 255, 0.1); padding: 2px 6px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; }
+.zone-item-btn:hover { background: #00F0FF; color: #000; }
+
+/* Швидкі тести */
+.test-routes { border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 14px; margin-bottom: 14px; }
+.tr-title { font-family: 'Silkscreen', monospace; font-size: 0.65rem; color: #94A3B8; display: block; margin-bottom: 8px; }
+.tr-chips { display: flex; flex-direction: column; gap: 6px; }
+.tr-chip { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.09); color: #CBD5E1; padding: 8px 12px; border-radius: 12px; font-size: 0.72rem; text-align: left; cursor: pointer; transition: 0.2s; }
+.tr-chip:hover { background: rgba(255, 255, 255, 0.15); color: #FFF; border-color: rgba(255, 255, 255, 0.25); }
+
+/* Звіт маршруту */
+.route-report { padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 14px; }
+.scanner-status-box { background: rgba(0, 240, 255, 0.07); border: 1px solid rgba(0, 240, 255, 0.3); padding: 12px; border-radius: 16px; font-family: 'Space Mono', monospace; font-size: 0.72rem; color: #E0F7FA; margin-bottom: 14px; line-height: 1.4; }
+
+.route-tabs { display: flex; gap: 6px; margin-bottom: 14px; background: rgba(0, 0, 0, 0.5); padding: 4px; border-radius: 9999px; border: 1px solid rgba(255, 255, 255, 0.12); }
+.tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; background: transparent; border: none; color: #94A3B8; font-weight: 700; font-size: 0.72rem; border-radius: 9999px; cursor: pointer; transition: 0.2s; }
+.tab-btn.active#tabSafe { background: #00FFAA; color: #000; }
+.tab-btn.active#tabFast { background: #FF2E38; color: #FFF; }
+.tab-dot { width: 6px; height: 6px; border-radius: 50%; }
+.safe-dot { background: #00FFAA; } .fast-dot { background: #FF2E38; }
+.tab-btn.active#tabSafe .safe-dot { background: #000; } .tab-btn.active#tabFast .fast-dot { background: #FFF; }
+
+.metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.metric-item { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); padding: 10px; border-radius: 16px; }
+.metric-item .lbl { font-size: 0.65rem; font-weight: 700; color: #94A3B8; display: block; margin-bottom: 3px; }
+.metric-item .val { font-family: 'Space Mono', monospace; font-size: 0.95rem; font-weight: 700; color: #FFFFFF; }
+
+/* Окремі картки висоти Safe та Fast */
+.elevation-compare-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.elev-card { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 14px; padding: 9px 10px; cursor: pointer; transition: all 0.25s ease; }
+.elev-card:hover { background: rgba(255, 255, 255, 0.08); }
+.elev-card.elev-safe-card { border-left: 3px solid #00FFAA; }
+.elev-card.elev-fast-card { border-left: 3px solid #FF2E38; }
+.elev-card.elev-safe-card.active { background: rgba(0, 255, 170, 0.12); border-color: #00FFAA; box-shadow: 0 0 16px rgba(0, 255, 170, 0.25); }
+.elev-card.elev-fast-card.active { background: rgba(255, 46, 56, 0.12); border-color: #FF2E38; box-shadow: 0 0 16px rgba(255, 46, 56, 0.25); }
+.elev-header { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.elev-name { font-weight: 700; font-size: 0.68rem; color: #FFF; }
+.elev-badge { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 0.60rem; font-weight: 700; color: #00FFAA; }
+.elev-badge.badge-fast { color: #FF2E38; }
+.elev-details { display: flex; justify-content: space-between; font-family: 'Space Mono', monospace; font-size: 0.63rem; color: #94A3B8; margin-bottom: 3px; }
+.elev-details span { color: #FFF; font-weight: 700; }
+.elev-climb { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: #64748B; }
+.elev-climb span { color: #E2E8F0; }
+
+/* Графік висот та легенда */
+.chart-box { background: #090B0E; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px; padding: 12px; }
+.chart-meta { display: flex; justify-content: space-between; align-items: center; font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #94A3B8; margin-bottom: 6px; }
+.chart-legend { display: flex; gap: 10px; font-size: 0.64rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+.leg-item { display: flex; align-items: center; gap: 4px; }
+.leg-safe { color: #00FFAA; }
+.leg-fast { color: #FF2E38; }
+.chart-hover-readout { font-family: 'Space Mono', monospace; font-size: 0.66rem; color: #CBD5E1; margin-bottom: 8px; background: rgba(0, 0, 0, 0.45); padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; min-height: 25px; }
+#elevationCanvas { width: 100%; height: 120px; display: block; cursor: crosshair; }
+
+/* Нижній рядок телеметрії */
+.hud-bottom { position: absolute; bottom: 16px; left: 18px; right: 18px; display: flex; align-items: center; gap: 28px; background: rgba(14, 17, 23, 0.94); padding: 10px 24px; border-radius: 9999px; border: 1px solid rgba(255, 255, 255, 0.15); font-family: 'Space Mono', monospace; font-size: 0.74rem; color: #94A3B8; z-index: 1000; pointer-events: none; backdrop-filter: blur(25px); }
+.hud-bottom span { color: #FFFFFF; font-weight: 700; }
+.nothing-mode-tag { margin-left: auto; display: flex; align-items: center; gap: 8px; font-family: 'Silkscreen', monospace; }
+
+/* Tooltip на карті */
+.mars-tooltip { background: rgba(10, 13, 18, 0.95) !important; color: #FFFFFF !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 8px !important; backdrop-filter: blur(16px) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.6) !important; font-family: 'Space Grotesk', sans-serif !important; padding: 4px 8px !important; }
+.mars-tooltip::before { border-top-color: rgba(10, 13, 18, 0.95) !important; }

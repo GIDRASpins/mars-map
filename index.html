@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARS // ROVER PATHFINDER [3D]</title>
+
+    <!-- Leaflet GIS Engine (2D) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Головні стилі інтерфейсу -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Спливаюче попередження -->
+    <div id="warningToast" class="warning-toast">
+        <span class="icon">!</span> <span id="warningMsg">КРИТИЧНО: Маршрут близько до небезпеки!</span>
+    </div>
+
+    <!-- Контейнери карт -->
+    <div id="map"></div> <!-- 2D Leaflet -->
+    <div id="globe-container" style="display: none;"></div> <!-- 3D Globe -->
+
+    <!-- Верхній рядок керування (HUD TOP) -->
+    <header class="hud-top">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="ПОШУК: Олімп, Марінера, Єзеро..." autocomplete="off">
+            <button id="searchBtn">ЗНАЙТИ</button>
+        </div>
+
+        <div class="view-toggles">
+            <button id="btnVisHazards" class="btn-toggle active-danger" title="Увімкнути/вимкнути відображення небезпечних зон">
+                <span class="btn-dot dot-red"></span>НЕБЕЗПЕКИ: ПОКАЗАНО
+            </button>
+            <button id="btnVisSafe" class="btn-toggle active-safe" title="Увімкнути/вимкнути відображення безпечних зон">
+                <span class="btn-dot dot-green"></span>БЕЗПЕЧНІ: ПОКАЗАНО
+            </button>
+            <button id="btnToggleHazards" class="btn-toggle active" title="Враховувати зони в алгоритмі прокладання A*">
+                A* ОБМЕЖЕННЯ: УВІМК
+            </button>
+            <button id="btnToggleView" class="btn-toggle">3D РЕЖИМ</button>
+        </div>
+
+        <div class="nothing-status-pill">
+            <span class="nothing-red-dot"></span> (MARS // 2:1)
+        </div>
+    </header>
+
+    <!-- Кнопка згортання бічної панелі -->
+    <button id="btnToggleSidebar" class="sidebar-toggle" title="Згорнути/розгорнути панель">❮</button>
+
+    <!-- Бічна панель (HUD SIDEBAR) -->
+    <aside class="hud-sidebar" id="sidebar">
+        <div class="panel-head">
+            <h3 class="dot-title">ROUTE PLANNER</h3>
+            <span class="nothing-badge">(A* TERRAIN SCAN)</span>
+        </div>
+
+        <p class="panel-desc">
+            Алгоритм прокладає шлях, оминаючи <span style="color:#FF2E38; font-weight:600;">небезпечні зони</span> та надаючи перевагу <span style="color:#00FFAA; font-weight:600;">безпечним рівнинам</span>. Клікніть на мапі для вибору точок A та B.
+        </p>
+
+        <!-- Картки вибору точок A та B -->
+        <div class="point-cards">
+            <div class="p-card card-a">
+                <div class="p-label"><span class="pin pin-a">A</span> СТАРТ</div>
+                <div class="p-value" id="dispPointA">Клікніть на мапі...</div>
+            </div>
+            <div class="p-card card-b">
+                <div class="p-label"><span class="pin pin-b">B</span> ФІНІШ</div>
+                <div class="p-value" id="dispPointB">Клікніть на мапі...</div>
+            </div>
+        </div>
+
+        <!-- Кнопки розрахунку та скидання -->
+        <div class="action-buttons">
+            <button id="btnBuildRoute" class="btn-main">РОЗРАХУВАТИ ШЛЯХ</button>
+            <button id="btnClearRoute" class="btn-sub">СКИНУТИ</button>
+        </div>
+
+        <!-- БЛОК КЕРУВАННЯ ШАРАМИ ТА ЗОНАМИ МАРСА -->
+        <div class="zones-panel-section">
+            <div class="section-title-row">
+                <span class="tr-title">ШАРИ ЗОН ТА ВІДОБРАЖЕННЯ</span>
+                <span class="zone-total-counter" id="zoneTotalCount">33 ЗОНИ</span>
+            </div>
+
+            <!-- Головні тумблери вмикання/вимикання відображення -->
+            <div class="visibility-switches">
+                <div class="zone-switch-card hazard-card">
+                    <div class="switch-info">
+                        <span class="zone-indicator-pill red-pill">НЕБЕЗПЕЧНІ ЗОНИ (19)</span>
+                        <span class="switch-subtext">Каньйони, кальдери, урвища, хаоси</span>
+                    </div>
+                    <button id="switchToggleHazards" class="switch-btn active hazard-switch" title="Увімкнути/вимкнути відображення небезпечних зон">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+
+                <div class="zone-switch-card safe-card">
+                    <div class="switch-info">
+                        <span class="zone-indicator-pill green-pill">БЕЗПЕЧНІ РІВНИНИ (14)</span>
+                        <span class="switch-subtext">Базальтові низовини, дна озер</span>
+                    </div>
+                    <button id="switchToggleSafe" class="switch-btn active safe-switch" title="Увімкнути/вимкнути відображення безпечних зон">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Каталог та швидкий перехід до зон -->
+            <div class="zone-explorer">
+                <div class="zone-filter-tabs">
+                    <button class="z-tab active" data-filter="all">ВСІ (33)</button>
+                    <button class="z-tab" data-filter="hazard">НЕБЕЗПЕЧНІ (19)</button>
+                    <button class="z-tab" data-filter="safe">БЕЗПЕЧНІ (14)</button>
+                </div>
+                <div class="zone-quick-search">
+                    <input type="text" id="zoneFilterInput" placeholder="Швидкий фільтр зони...">
+                </div>
+                <div class="zones-scroll-list" id="zonesListContainer">
+                    <!-- Заповнюється динамічно з JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Готові тестові маршрути -->
+        <div class="test-routes">
+            <span class="tr-title">ШВИДКІ ТЕСТИ МАРШРУТІВ:</span>
+            <div class="tr-chips">
+                <button class="tr-chip" onclick="setPresetRoute(-6.5, -89.0, -14.5, -34.0)">Траверс каньйонів Долини Марінера</button>
+                <button class="tr-chip" onclick="setPresetRoute(22.0, -160.0, 18.4, -133.8)">З рівнини Амазонія до вулкану Олімп</button>
+                <button class="tr-chip" onclick="setPresetRoute(18.4, 77.3, 13.8, 87.4)">З озера Єзеро до рівнини Ісіди</button>
+                <button class="tr-chip" onclick="setPresetRoute(25.0, 120.0, 5.0, 160.0)">Шлях через низовину до рівнини Елізій</button>
+                <button class="tr-chip" onclick="setPresetRoute(-9.1, -99.4, -11.6, -62.8)">Через Лабіринт Ночі до Копратес</button>
+                <button class="tr-chip" onclick="setPresetRoute(14.0, 165.0, 18.0, -165.0)">🌐 Через край мапи (Елізій ↔ Амазонія)</button>
+            </div>
+        </div>
+
+        <!-- Звіт розрахованого маршруту -->
+        <div id="routeReport" class="route-report" style="display: none;">
+            <div id="scannerDiagnosis" class="scanner-status-box">Сканування...</div>
+            
+            <div class="route-tabs">
+                <button class="tab-btn active" id="tabSafe" onclick="setActiveRoute('safe')">
+                    <span class="tab-dot safe-dot"></span> БЕЗПЕЧНИЙ
+                </button>
+                <button class="tab-btn" id="tabFast" onclick="setActiveRoute('fast')">
+                    <span class="tab-dot fast-dot"></span> ШВИДКИЙ
+                </button>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <span class="lbl">ДИСТАНЦІЯ</span>
+                    <span class="val" id="metricDist">0 км</span>
+                </div>
+                <div class="metric-item">
+                    <span class="lbl">МАКС. НАХИЛ</span>
+                    <span class="val" id="metricSlope">0°</span>
+                </div>
+                <div class="metric-item">
+                    <span class="lbl">НАБІР / СПУСК</span>
+                    <span class="val" id="metricClimb">+0 / -0 м</span>
+                </div>
+                <div class="metric-item">
+                    <span class="lbl">БЕЗПЕКА</span>
+                    <span class="val" id="metricSafety">100%</span>
+                </div>
+            </div>
+
+            <!-- ОКРЕМІ КАРТКИ ВИСОТИ ДЛЯ ОБОХ МАРШРУТІВ -->
+            <div class="elevation-compare-box">
+                <div class="elev-card elev-safe-card active" onclick="setActiveRoute('safe')">
+                    <div class="elev-header">
+                        <span class="btn-dot dot-green"></span>
+                        <span class="elev-name">БЕЗПЕЧНИЙ</span>
+                        <span class="elev-badge" id="elevSafeDiff">Δ 0 м</span>
+                    </div>
+                    <div class="elev-details">
+                        <div>МІН: <span id="elevSafeMin">0 м</span></div>
+                        <div>МАКС: <span id="elevSafeMax">0 м</span></div>
+                    </div>
+                    <div class="elev-climb">ПЕРЕПАД: <span id="elevSafeClimb">+0 / -0 м</span></div>
+                </div>
+
+                <div class="elev-card elev-fast-card" onclick="setActiveRoute('fast')">
+                    <div class="elev-header">
+                        <span class="btn-dot dot-red"></span>
+                        <span class="elev-name">ШВИДКИЙ</span>
+                        <span class="elev-badge badge-fast" id="elevFastDiff">Δ 0 м</span>
+                    </div>
+                    <div class="elev-details">
+                        <div>МІН: <span id="elevFastMin">0 м</span></div>
+                        <div>МАКС: <span id="elevFastMax">0 м</span></div>
+                    </div>
+                    <div class="elev-climb">ПЕРЕПАД: <span id="elevFastClimb">+0 / -0 м</span></div>
+                </div>
+            </div>
+
+            <!-- ПОРІВНЯЛЬНИЙ ГРАФІК ВИСОТ -->
+            <div class="chart-box">
+                <div class="chart-meta">
+                    <span class="dot-meta">ПРОФІЛЬ ВИСОТ</span>
+                    <div class="chart-legend">
+                        <span class="leg-item leg-safe"><span class="btn-dot dot-green"></span> БЕЗП.</span>
+                        <span class="leg-item leg-fast"><span class="btn-dot dot-red"></span> ШВИД.</span>
+                    </div>
+                </div>
+                <div class="chart-hover-readout" id="chartHoverInfo">-</div>
+                <canvas id="elevationCanvas" width="330" height="120"></canvas>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Нижній рядок телеметрії (HUD BOTTOM) -->
+    <footer class="hud-bottom">
+        <div>LAT <span id="teleLat">0.0000°</span></div>
+        <div>LON <span id="teleLon">0.0000°</span></div>
+        <div>ALT <span id="teleAlt">0 M</span></div>
+        <div class="nothing-mode-tag"><span class="nothing-red-dot"></span> ROVER // ACTIVE</div>
+    </footer>
+
+    <!-- Бібліотека Leaflet для 2D карти -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Бібліотека Globe.gl для 3D глобуса -->
+    <script src="https://unpkg.com/globe.gl@2.32.2/dist/globe.gl.min.js"></script>
+    
+    <!-- Головна логіка застосунку -->
+    <script src="script.js"></script>
+</body>
+</html>
