@@ -1686,18 +1686,17 @@ let authTabMode = 'login';
 let autoSaveTimer = null;
 let syncToastTimer = null;
 
-const STORAGE_CURRENT_USER_KEY = 'mars_active_user';
-const STORAGE_TOKEN_KEY = 'mars_session_token';
+// Токен сесії живе лише в пам'яті сторінки: у браузері (localStorage/cookies) нічого не зберігається.
+// Усі дані акаунтів і маршрутів — тільки в PostgreSQL.
+let sessionToken = null;
 
 function authHeaders(extra = {}) {
-    const token = localStorage.getItem(STORAGE_TOKEN_KEY);
-    return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+    return sessionToken ? { ...extra, Authorization: `Bearer ${sessionToken}` } : extra;
 }
 
 function clearLocalSession() {
     currentUser = null;
-    localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
+    sessionToken = null;
     renderAuthUI(false);
 }
 
@@ -1792,36 +1791,8 @@ function updateModalSyncView(a, b) {
 }
 
 async function checkAuthSession() {
-    try {
-        const savedUsername = localStorage.getItem(STORAGE_CURRENT_USER_KEY);
-        if (!savedUsername || !localStorage.getItem(STORAGE_TOKEN_KEY)) {
-            localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
-            renderAuthUI(false);
-            return;
-        }
-
-        currentUser = savedUsername;
-        renderAuthUI(true, currentUser);
-
-        // Підтягуємо актуальні координати з PostgreSQL
-        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`, {
-            headers: authHeaders()
-        });
-        if (res.status === 401) {
-            clearLocalSession();
-            return;
-        }
-        if (res.ok) {
-            const data = await res.json();
-            updateModalSyncView(data.pointA, data.pointB);
-            if (data.pointA && data.pointB && !ptA && !ptB) {
-                applyCloudRoutePoints(data.pointA, data.pointB, true);
-                showSyncToast(`Синхронізовано з PostgreSQL: ${currentUser}`);
-            }
-        }
-    } catch (e) {
-        renderAuthUI(false);
-    }
+    // Нічого не відновлюємо з браузера: після перезавантаження потрібно увійти знову
+    renderAuthUI(false);
 }
 
 function renderAuthUI(isLoggedIn, username = '') {
@@ -1937,8 +1908,7 @@ function initAccountModal() {
                 }
 
                 currentUser = data.user.username;
-                localStorage.setItem(STORAGE_CURRENT_USER_KEY, currentUser);
-                localStorage.setItem(STORAGE_TOKEN_KEY, data.token);
+                sessionToken = data.token;
                 renderAuthUI(true, currentUser);
                 updateModalSyncView(data.user.point_a, data.user.point_b);
 

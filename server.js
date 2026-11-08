@@ -261,6 +261,20 @@ app.get('/api/load-route/:username', requireAuth, async (req, res) => {
   }
 });
 
+// Діагностика: відкрийте /api/health у браузері, щоб побачити, до якої бази підключений сервер
+app.get('/api/health', async (req, res) => {
+  if (!connectionString) {
+    return res.status(500).json({ ok: false, error: 'DATABASE_URL не задано у Variables сервісу mars-map' });
+  }
+  try {
+    const info = await pool.query('SELECT current_database() AS db, inet_server_addr()::text AS server');
+    const users = await pool.query('SELECT COUNT(*)::int AS count FROM mars_users');
+    res.json({ ok: true, database: info.rows[0].db, users: users.rows[0].count });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Маршрутизація сторінки
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
