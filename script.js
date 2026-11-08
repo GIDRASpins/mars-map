@@ -4,7 +4,7 @@ const WORLD_OFFSETS = [0, 1, -1];
 
 const MARS_TEXTURE_URL = 'https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg';
 
-// Миттєвий прелоадинг текстури в кеш браузера для миттєвого відображення обох карт
+// Миттєвий прелоадинг текстури в кеш браузера для швидкого відображення карт
 const marsPreloadImg = new Image();
 marsPreloadImg.src = MARS_TEXTURE_URL;
 
@@ -455,7 +455,6 @@ function getMolaElevation(lat, lon) {
     return Math.round(elev);
 }
 
-// Тротлінг оновлення телеметрії: максимум 25 FPS (виключає затримки під час перетягування)
 let lastTeleTime = 0;
 function updateTelemetry(lat, lon) {
     const elLat = document.getElementById('teleLat');
@@ -480,20 +479,19 @@ function updateTelemetry(lat, lon) {
 }
 
 // ============================================================================
-// 4. LEAFLET 2D (АПАРАТНИЙ GPU CANVAS + ОБИДВІ КАРТИ ПРОГРУЖАЮТЬСЯ ОДРАЗУ)
+// 4. LEAFLET 2D (АПАРАТНИЙ GPU CANVAS + КАРТИ ПРОГРУЖАЮТЬСЯ ОДРАЗУ)
 // ============================================================================
 const map = L.map('map', {
     crs: L.CRS.EPSG4326,
     center: [0, 0],
     zoom: 2,
     zoomSnap: 0.05,
-    preferCanvas: true, // Вмикає апаратне GPU-прискорення Canvas для всіх векторних зон
+    preferCanvas: true,
     worldCopyJump: false,
     maxBounds: [[-90, -100000], [90, 100000]],
     maxBoundsViscosity: 1.0
 });
 
-// Накладання карти 1, карти 2 та лівої карти одразу без затримок
 WORLD_OFFSETS.forEach(offset => {
     L.imageOverlay(MARS_TEXTURE_URL, [
         [-90, -180 + offset * 360],
@@ -503,12 +501,9 @@ WORLD_OFFSETS.forEach(offset => {
     }).addTo(map);
 });
 
-// Розрахунок масштабу: карта відображається ВІД ПОЛЮСА ДО ПОЛЮСА (-90° до +90°) без обрізання
 function updatePoleToPoleZoom() {
     const h = map.getSize().y;
     if (!h) return;
-    
-    // В EPSG:4326 при zoom z висота світу = 256 * 2^z
     const fitZoom = Math.log2(h / 256);
     const safeMinZoom = Math.max(0.5, fitZoom);
 
@@ -521,7 +516,6 @@ function updatePoleToPoleZoom() {
 updatePoleToPoleZoom();
 window.addEventListener('resize', updatePoleToPoleZoom);
 
-// Плавне зациклення X-координат після завершення руху (moveend)
 map.on('moveend', () => {
     const center = map.getCenter();
     if (center.lng > 180 || center.lng < -180) {
@@ -529,14 +523,12 @@ map.on('moveend', () => {
     }
 });
 
-// Надійне блокування постановки міток при перетягуванні карти
 let isMapDragging = false;
 map.on('dragstart', () => { isMapDragging = true; });
 map.on('dragend', () => {
     setTimeout(() => { isMapDragging = false; }, 100);
 });
 
-// Шари даних
 const hazardLayerGroup = L.layerGroup().addTo(map);
 const safeLayerGroup = L.layerGroup().addTo(map);
 const selectedZoneGroup = L.layerGroup().addTo(map);
@@ -553,7 +545,6 @@ function renderZones2D() {
     MARS_ZONES.forEach(z => {
         const isHaz = z.type === 'hazard';
 
-        // Відображаємо всі зони ОДРАЗУ на обох картах і на стику
         WORLD_OFFSETS.forEach(offset => {
             const shiftedCoords = z.smoothCoords.map(pt => [pt[0], pt[1] + offset * 360]);
 
@@ -622,7 +613,7 @@ function highlightSelectedZone(zoneId) {
 
 map.on('mousemove', (e) => {
     const now = performance.now();
-    if (now - lastTeleTime < 40) return; // Обмеження частоти до 25 FPS
+    if (now - lastTeleTime < 40) return;
     lastTeleTime = now;
     updateTelemetry(e.latlng.lat, e.latlng.lng);
 });
@@ -1148,7 +1139,6 @@ function handleCoordinateSelect(rawLat, rawLon) {
     debouncedSaveCloudRoute();
 }
 
-// Клік ставить мітку тільки якщо карту НЕ перетягували
 map.on('click', (e) => {
     if (isMapDragging) return;
     handleCoordinateSelect(e.latlng.lat, e.latlng.lng);
@@ -1684,7 +1674,7 @@ cvs.addEventListener('mouseleave', () => {
 });
 
 // ============================================================================
-// 12. СТАРТ ТА СИСТЕМА АКАУНТІВ
+// 12. СТАРТ ТА СИСТЕМА АКАУНТІВ (POSTGRESQL API)
 // ============================================================================
 renderZones2D();
 renderZonesList();
@@ -1696,25 +1686,7 @@ let authTabMode = 'login';
 let autoSaveTimer = null;
 let syncToastTimer = null;
 
-const STORAGE_USERS_KEY = 'mars_accounts_data';
 const STORAGE_CURRENT_USER_KEY = 'mars_active_user';
-
-function getStoredAccounts() {
-    try {
-        const raw = localStorage.getItem(STORAGE_USERS_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch (e) {
-        return {};
-    }
-}
-
-function saveStoredAccounts(accounts) {
-    try {
-        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(accounts));
-    } catch (e) {
-        console.warn('Storage save error:', e);
-    }
-}
 
 function showSyncToast(message) {
     const toast = document.getElementById('syncToast');
@@ -1732,31 +1704,58 @@ function debouncedSaveCloudRoute(delay = 500) {
     autoSaveTimer = setTimeout(() => saveRouteToAccount(false), delay);
 }
 
-function saveRouteToAccount(showToast = true) {
+// Збереження точок у базу PostgreSQL через бекенд Railway
+async function saveRouteToAccount(showToast = true) {
     if (!currentUser) return;
-    const accounts = getStoredAccounts();
-    if (!accounts[currentUser]) {
-        accounts[currentUser] = { password: '', pointA: null, pointB: null };
-    }
-    accounts[currentUser].pointA = ptA ? { lat: ptA.lat, lon: ptA.lon } : null;
-    accounts[currentUser].pointB = ptB ? { lat: ptB.lat, lon: ptB.lon } : null;
-    saveStoredAccounts(accounts);
-    updateModalSyncView(ptA, ptB);
 
-    if (showToast) showSyncToast('Маршрут збережено в акаунті 💾');
+    try {
+        const payload = {
+            username: currentUser,
+            pointA: ptA ? { lat: ptA.lat, lon: ptA.lon } : null,
+            pointB: ptB ? { lat: ptB.lat, lon: ptB.lon } : null
+        };
+
+        const res = await fetch('/api/save-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            updateModalSyncView(ptA, ptB);
+            if (showToast) showSyncToast('Маршрут збережено в PostgreSQL 💾');
+        } else {
+            const data = await res.json();
+            console.warn('Сервер повернув помилку збереження:', data.error);
+        }
+    } catch (e) {
+        console.error('Помилка звернення до сервера БД:', e);
+    }
 }
 
-function loadRouteFromAccount(autoBuild = true) {
+// Завантаження збережених точок ровера з PostgreSQL
+async function loadRouteFromAccount(autoBuild = true) {
     if (!currentUser) return;
-    const accounts = getStoredAccounts();
-    const userAcc = accounts[currentUser];
-    if (userAcc && (userAcc.pointA || userAcc.pointB)) {
-        applyCloudRoutePoints(userAcc.pointA, userAcc.pointB, autoBuild);
-        showSyncToast(`Маршрут завантажено з акаунту ${currentUser}`);
-    } else {
-        showSyncToast('В акаунті ще немає збережених точок');
+
+    try {
+        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`);
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            if (data.pointA || data.pointB) {
+                applyCloudRoutePoints(data.pointA, data.pointB, autoBuild);
+                showSyncToast(`Маршрут завантажено з PostgreSQL (${currentUser})`);
+            } else {
+                showSyncToast('В акаунті ще немає збережених точок');
+            }
+            updateModalSyncView(data.pointA, data.pointB);
+        } else {
+            showSyncToast(data.error || 'Помилка завантаження даних');
+        }
+    } catch (e) {
+        console.error('Помилка завантаження з PostgreSQL:', e);
+        showSyncToast('Помилка зв’язку з базою даних');
     }
-    updateModalSyncView(userAcc?.pointA, userAcc?.pointB);
 }
 
 function updateModalSyncView(a, b) {
@@ -1766,28 +1765,26 @@ function updateModalSyncView(a, b) {
     if (elB) elB.innerText = b ? `${Number(b.lat).toFixed(2)}°, ${Number(b.lon).toFixed(2)}°` : 'Не встановлено';
 }
 
-function checkAuthSession() {
+async function checkAuthSession() {
     try {
         const savedUsername = localStorage.getItem(STORAGE_CURRENT_USER_KEY);
         if (!savedUsername) {
             renderAuthUI(false);
             return;
         }
-        const accounts = getStoredAccounts();
-        if (accounts[savedUsername]) {
-            currentUser = savedUsername;
-            renderAuthUI(true, currentUser);
-            const userAcc = accounts[currentUser];
-            updateModalSyncView(userAcc.pointA, userAcc.pointB);
 
-            if (userAcc.pointA && userAcc.pointB && !ptA && !ptB) {
-                applyCloudRoutePoints(userAcc.pointA, userAcc.pointB, true);
-                showSyncToast(`Маршрут завантажено з акаунту ${currentUser}`);
+        currentUser = savedUsername;
+        renderAuthUI(true, currentUser);
+
+        // Підтягуємо актуальні координати з PostgreSQL
+        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`);
+        if (res.ok) {
+            const data = await res.json();
+            updateModalSyncView(data.pointA, data.pointB);
+            if (data.pointA && data.pointB && !ptA && !ptB) {
+                applyCloudRoutePoints(data.pointA, data.pointB, true);
+                showSyncToast(`Синхронізовано з PostgreSQL: ${currentUser}`);
             }
-        } else {
-            localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
-            currentUser = null;
-            renderAuthUI(false);
         }
     } catch (e) {
         renderAuthUI(false);
@@ -1871,9 +1868,10 @@ function initAccountModal() {
     }
 
     if (authForm) {
-        authForm.onsubmit = (e) => {
+        authForm.onsubmit = async (e) => {
             e.preventDefault();
             clearMsgs();
+
             const usernameInput = document.getElementById('authUsername');
             const passwordInput = document.getElementById('authPassword');
             const u = usernameInput ? usernameInput.value.trim() : '';
@@ -1882,40 +1880,55 @@ function initAccountModal() {
             if (u.length < 3) return showErr('Логін має містити щонайменше 3 символи');
             if (p.length < 3) return showErr('Пароль має містити щонайменше 3 символи');
 
-            const accounts = getStoredAccounts();
+            btnSubmit.disabled = true;
+            btnSubmit.innerText = 'ОБРОБКА...';
 
-            if (authTabMode === 'register') {
-                if (accounts[u]) return showErr('Користувач з таким логіном вже існує');
-                accounts[u] = {
-                    password: p,
-                    pointA: ptA ? { lat: ptA.lat, lon: ptA.lon } : null,
-                    pointB: ptB ? { lat: ptB.lat, lon: ptB.lon } : null
-                };
-                saveStoredAccounts(accounts);
-                currentUser = u;
-                localStorage.setItem(STORAGE_CURRENT_USER_KEY, u);
-                renderAuthUI(true, currentUser);
-                updateModalSyncView(accounts[u].pointA, accounts[u].pointB);
-                showSucc('Акаунт успішно створено!');
-                setTimeout(() => modal.style.display = 'none', 1000);
-            } else {
-                if (!accounts[u] || accounts[u].password !== p) return showErr('Невірний логін або пароль');
-                currentUser = u;
-                localStorage.setItem(STORAGE_CURRENT_USER_KEY, u);
-                renderAuthUI(true, currentUser);
-                const userAcc = accounts[u];
-                updateModalSyncView(userAcc.pointA, userAcc.pointB);
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: u,
+                        password: p,
+                        mode: authTabMode,
+                        pointA: ptA,
+                        pointB: ptB
+                    })
+                });
 
-                if (userAcc.pointA || userAcc.pointB) {
-                    applyCloudRoutePoints(userAcc.pointA, userAcc.pointB, true);
-                    showSucc('Вхід успішний! Завантажено збережений маршрут.');
-                } else if (ptA || ptB) {
-                    saveRouteToAccount(false);
-                    showSucc('Вхід успішний! Поточні точки збережено.');
-                } else {
-                    showSucc('Вхід успішний!');
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showErr(data.error || 'Помилка авторизації');
+                    return;
                 }
-                setTimeout(() => modal.style.display = 'none', 1000);
+
+                currentUser = data.user.username;
+                localStorage.setItem(STORAGE_CURRENT_USER_KEY, currentUser);
+                renderAuthUI(true, currentUser);
+                updateModalSyncView(data.user.point_a, data.user.point_b);
+
+                if (authTabMode === 'register') {
+                    showSucc('Акаунт успішно створено в PostgreSQL!');
+                } else {
+                    if (data.user.point_a || data.user.point_b) {
+                        applyCloudRoutePoints(data.user.point_a, data.user.point_b, true);
+                        showSucc('Вхід успішний! Завантажено збережений маршрут.');
+                    } else if (ptA || ptB) {
+                        saveRouteToAccount(false);
+                        showSucc('Вхід успішний! Поточні точки збережено.');
+                    } else {
+                        showSucc('Вхід успішний!');
+                    }
+                }
+
+                setTimeout(() => { modal.style.display = 'none'; }, 1000);
+            } catch (err) {
+                console.error('Помилка мережі /api/auth:', err);
+                showErr('Помилка підключення до сервера БД');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = (authTabMode === 'register') ? 'СТВОРИТИ АКАУНТ' : 'УВІЙТИ В АКАУНТ';
             }
         };
     }

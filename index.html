@@ -25,7 +25,7 @@
 
     <!-- Спливаюче сповіщення синхронізації -->
     <div id="syncToast" class="sync-toast">
-        <span class="sync-icon">☁</span> <span id="syncToastMsg">Маршрут синхронізовано з хмарою</span>
+        <span class="sync-icon">☁</span> <span id="syncToastMsg">Маршрут синхронізовано з PostgreSQL</span>
     </div>
 
     <!-- Контейнери карт -->
@@ -41,7 +41,7 @@
                 </select>
             </div>
             
-            <button id="btnAccount" class="btn-toggle btn-account" title="Особистий акаунт (Синхронізація між пристроями)">
+            <button id="btnAccount" class="btn-toggle btn-account" title="Особистий акаунт (Синхронізація через PostgreSQL)">
                 <span class="btn-dot dot-account" id="accountDot"></span>
                 <span id="accountBtnText">ВХІД / АКАУНТ</span>
             </button>
@@ -279,11 +279,11 @@
             
             <div id="authLoggedOutView">
                 <div class="modal-head">
-                    <div class="modal-pill">MARS // ROUTE SYNC</div>
+                    <div class="modal-pill">MARS // POSTGRESQL SYNC</div>
                     <h3 class="modal-title">ОСОБИСТИЙ КАБІНЕТ</h3>
                     <p class="modal-desc">
                         Вхід <strong>необов'язковий</strong>. Ви можете розраховувати маршрути вільно без реєстрації.<br>
-                        Акаунт потрібен, щоб зберегти 2 точки маршруту і мати один і той же маршрут при вході з будь-якого пристрою.
+                        Створіть акаунт, щоб зберегти 2 точки маршруту в базу даних PostgreSQL на Railway і синхронізувати їх між пристроями.
                     </p>
                 </div>
 
@@ -313,17 +313,17 @@
 
             <div id="authLoggedInView" style="display: none;">
                 <div class="modal-head">
-                    <div class="modal-pill pill-online">🟢 СИНХРОНІЗАЦІЯ АКТИВНА</div>
+                    <div class="modal-pill pill-online">🟢 POSTGRESQL СИНХРОНІЗОВАНО</div>
                     <h3 class="modal-title" id="loggedInUsernameTitle">РОСТЕР // АСТРОНАВТ</h3>
                     <p class="modal-desc">
-                        Вхід виконано. Ваші 2 точки маршруту прив'язані до вашого акаунту та зберігаються автоматично.
+                        Вхід виконано. Ваші точки маршруту автоматично записуються в базу даних PostgreSQL.
                     </p>
                 </div>
 
                 <div class="sync-status-box">
                     <div class="sync-row">
-                        <span class="sync-lbl">СТАТУС АКАУНТУ:</span>
-                        <span class="sync-val text-green" id="syncDbStatus">Активний // Збереження увімкнено</span>
+                        <span class="sync-lbl">СТАТУС БАЗИ:</span>
+                        <span class="sync-val text-green" id="syncDbStatus">Підключено до PostgreSQL</span>
                     </div>
                     <div class="sync-row">
                         <span class="sync-lbl">ТОЧКА A (СТАРТ):</span>
@@ -336,8 +336,8 @@
                 </div>
 
                 <div class="logged-actions">
-                    <button id="btnSaveCurrentRoute" class="btn-main">💾 ЗБЕРЕГТИ ПОТОЧНИЙ ШЛЯХ З МАПИ</button>
-                    <button id="btnLoadSavedRoute" class="btn-sub">📥 ЗАВАНТАЖИТИ ЗБЕРЕЖЕНИЙ ШЛЯХ</button>
+                    <button id="btnSaveCurrentRoute" class="btn-main">💾 ЗБЕРЕГТИ ТОЧКИ В POSTGRESQL</button>
+                    <button id="btnLoadSavedRoute" class="btn-sub">📥 ЗАВАНТАЖИТИ З БАЗИ ДАНИХ</button>
                     <button id="btnLogout" class="btn-sub btn-danger">🚪 ВИЙТИ З АКАУНТУ</button>
                 </div>
             </div>
