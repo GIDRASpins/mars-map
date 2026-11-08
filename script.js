@@ -557,12 +557,8 @@ function renderZones2D() {
                 dashArray: isHaz ? '4, 4' : '6, 6'
             });
 
-            poly.on('click', (e) => {
-                if (isMapDragging) return;
-                L.DomEvent.stopPropagation(e);
-                highlightSelectedZone(z.id);
-                focusOnZone(z.id);
-            });
+            // Клік по зоні не відкриває панель: він «проходить» до мапи і ставить точку маршруту.
+            // Панель із інформацією відкривається лише через пошук / список / вибір зони.
 
             if (isHaz) {
                 hazardLayerGroup.addLayer(poly);
@@ -744,7 +740,9 @@ try {
                        .polygonCapColor(myGlobe.polygonCapColor());
             }
         })
-        .onPolygonClick(d => focusOnZone(d.properties.id))
+        .onPolygonClick((d, ev, coords) => {
+            if (coords) handleCoordinateSelect(coords.lat, coords.lng);
+        })
         .onGlobeClick(({ lat, lng }) => handleCoordinateSelect(lat, lng));
 } catch (err) {
     console.warn("3D Globe:", err);
