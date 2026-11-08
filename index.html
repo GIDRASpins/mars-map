@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MARS // ROVER PATHFINDER [3D]</title>
 
     <!-- Leaflet GIS Engine (2D) -->
@@ -23,15 +23,28 @@
         <span class="icon">!</span> <span id="warningMsg">КРИТИЧНО: Маршрут близько до небезпеки!</span>
     </div>
 
+    <!-- Спливаюче сповіщення синхронізації -->
+    <div id="syncToast" class="sync-toast">
+        <span class="sync-icon">☁</span> <span id="syncToastMsg">Маршрут синхронізовано з хмарою</span>
+    </div>
+
     <!-- Контейнери карт -->
     <div id="map"></div> <!-- 2D Leaflet -->
     <div id="globe-container" style="display: none;"></div> <!-- 3D Globe -->
 
     <!-- Верхній рядок керування (HUD TOP) -->
     <header class="hud-top">
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="ПОШУК: Олімп, Марінера, Єзеро..." autocomplete="off">
-            <button id="searchBtn">ЗНАЙТИ</button>
+        <div class="hud-top-main-row">
+            <div class="search-box">
+                <select id="zoneSelect">
+                    <option value="" disabled selected>Оберіть зону Марса...</option>
+                </select>
+            </div>
+            
+            <button id="btnAccount" class="btn-toggle btn-account" title="Особистий акаунт (Синхронізація між пристроями)">
+                <span class="btn-dot dot-account" id="accountDot"></span>
+                <span id="accountBtnText">ВХІД / АКАУНТ</span>
+            </button>
         </div>
 
         <div class="view-toggles">
@@ -58,8 +71,11 @@
     <!-- Бічна панель (HUD SIDEBAR) -->
     <aside class="hud-sidebar" id="sidebar">
         <div class="panel-head">
-            <h3 class="dot-title">ROUTE PLANNER</h3>
-            <span class="nothing-badge">(A* TERRAIN SCAN)</span>
+            <div>
+                <h3 class="dot-title">ROUTE PLANNER</h3>
+                <span class="nothing-badge">(A* TERRAIN SCAN)</span>
+            </div>
+            <button id="btnCloseSidebarMobile" class="btn-close-sidebar-mobile" title="Закрити панель">×</button>
         </div>
 
         <p class="panel-desc">
@@ -88,14 +104,14 @@
         <div class="zones-panel-section">
             <div class="section-title-row">
                 <span class="tr-title">ШАРИ ЗОН ТА ВІДОБРАЖЕННЯ</span>
-                <span class="zone-total-counter" id="zoneTotalCount">33 ЗОНИ</span>
+                <span class="zone-total-counter" id="zoneTotalCount">30 ЗОН</span>
             </div>
 
             <!-- Головні тумблери вмикання/вимикання відображення -->
             <div class="visibility-switches">
                 <div class="zone-switch-card hazard-card">
                     <div class="switch-info">
-                        <span class="zone-indicator-pill red-pill">НЕБЕЗПЕЧНІ ЗОНИ (19)</span>
+                        <span class="zone-indicator-pill red-pill" id="hazardCountPill">НЕБЕЗПЕЧНІ ЗОНИ (16)</span>
                         <span class="switch-subtext">Каньйони, кальдери, урвища, хаоси</span>
                     </div>
                     <button id="switchToggleHazards" class="switch-btn active hazard-switch" title="Увімкнути/вимкнути відображення небезпечних зон">
@@ -105,7 +121,7 @@
 
                 <div class="zone-switch-card safe-card">
                     <div class="switch-info">
-                        <span class="zone-indicator-pill green-pill">БЕЗПЕЧНІ РІВНИНИ (14)</span>
+                        <span class="zone-indicator-pill green-pill" id="safeCountPill">БЕЗПЕЧНІ РІВНИНИ (14)</span>
                         <span class="switch-subtext">Базальтові низовини, дна озер</span>
                     </div>
                     <button id="switchToggleSafe" class="switch-btn active safe-switch" title="Увімкнути/вимкнути відображення безпечних зон">
@@ -117,16 +133,14 @@
             <!-- Каталог та швидкий перехід до зон -->
             <div class="zone-explorer">
                 <div class="zone-filter-tabs">
-                    <button class="z-tab active" data-filter="all">ВСІ (33)</button>
-                    <button class="z-tab" data-filter="hazard">НЕБЕЗПЕЧНІ (19)</button>
-                    <button class="z-tab" data-filter="safe">БЕЗПЕЧНІ (14)</button>
+                    <button class="z-tab active" data-filter="all" id="tabFilterAll">ВСІ (30)</button>
+                    <button class="z-tab" data-filter="hazard" id="tabFilterHaz">НЕБЕЗПЕЧНІ (16)</button>
+                    <button class="z-tab" data-filter="safe" id="tabFilterSafe">БЕЗПЕЧНІ (14)</button>
                 </div>
                 <div class="zone-quick-search">
                     <input type="text" id="zoneFilterInput" placeholder="Швидкий фільтр зони...">
                 </div>
-                <div class="zones-scroll-list" id="zonesListContainer">
-                    <!-- Заповнюється динамічно з JavaScript -->
-                </div>
+                <div class="zones-scroll-list" id="zonesListContainer"></div>
             </div>
         </div>
 
@@ -175,7 +189,7 @@
                 </div>
             </div>
 
-            <!-- ОКРЕМІ КАРТКИ ВИСОТИ ДЛЯ ОБОХ МАРШРУТІВ -->
+            <!-- Картки висот -->
             <div class="elevation-compare-box">
                 <div class="elev-card elev-safe-card active" onclick="setActiveRoute('safe')">
                     <div class="elev-header">
@@ -204,7 +218,7 @@
                 </div>
             </div>
 
-            <!-- ПОРІВНЯЛЬНИЙ ГРАФІК ВИСОТ -->
+            <!-- Порівняльний графік висот -->
             <div class="chart-box">
                 <div class="chart-meta">
                     <span class="dot-meta">ПРОФІЛЬ ВИСОТ</span>
@@ -226,6 +240,109 @@
         <div>ALT <span id="teleAlt">0 M</span></div>
         <div class="nothing-mode-tag"><span class="nothing-red-dot"></span> ROVER // ACTIVE</div>
     </footer>
+
+    <!-- Інформаційна картка обраної зони -->
+    <div id="zoneInfoCard" class="zone-info-card" style="display: none;">
+        <button id="btnCloseZoneCard" class="btn-close-card" title="Закрити">×</button>
+        <div class="card-image-container">
+            <div class="image-placeholder">Зображення зони</div>
+        </div>
+        <div class="card-details">
+            <h4 id="cardZoneName" class="card-title">Назва зони</h4>
+            <div class="card-info-row">
+                <span class="info-label">Тип місцевості:</span>
+                <span class="info-value" id="cardTerrainType">Піщаний / Кам'янистий</span>
+            </div>
+            <div class="card-info-row">
+                <span class="info-label">Підземний лід:</span>
+                <span class="info-value" id="cardIcePresence">Присутній</span>
+            </div>
+            <div class="card-info-row">
+                <span class="info-label">Поточна погода:</span>
+                <span class="info-value" id="cardWeather">Ясно, пиловий серпанок</span>
+            </div>
+            <div class="card-info-row">
+                <span class="info-label">Місцевий час:</span>
+                <span class="info-value" id="cardTime">14:32 MTC</span>
+            </div>
+            <div class="card-info-row">
+                <span class="info-label">Температура:</span>
+                <span class="info-valueHighlight" id="cardTemp">-63 °C</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно акаунту -->
+    <div id="accountModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+            <button id="btnCloseAccountModal" class="btn-close-card" title="Закрити">×</button>
+            
+            <div id="authLoggedOutView">
+                <div class="modal-head">
+                    <div class="modal-pill">MARS // ROUTE SYNC</div>
+                    <h3 class="modal-title">ОСОБИСТИЙ КАБІНЕТ</h3>
+                    <p class="modal-desc">
+                        Вхід <strong>необов'язковий</strong>. Ви можете розраховувати маршрути вільно без реєстрації.<br>
+                        Акаунт потрібен, щоб зберегти 2 точки маршруту і мати один і той же маршрут при вході з будь-якого пристрою.
+                    </p>
+                </div>
+
+                <div class="auth-tabs">
+                    <button id="tabAuthLogin" class="auth-tab-btn active">ВХІД</button>
+                    <button id="tabAuthRegister" class="auth-tab-btn">РЕЄСТРАЦІЯ</button>
+                </div>
+
+                <form id="authForm" onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label" for="authUsername">Логін ровера:</label>
+                        <input type="text" id="authUsername" class="form-input" placeholder="Наприклад, curiosity_rover" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="authPassword">Пароль:</label>
+                        <input type="password" id="authPassword" class="form-input" placeholder="Введіть пароль" required autocomplete="current-password">
+                    </div>
+                    
+                    <div id="authErrorMsg" class="auth-msg error" style="display: none;"></div>
+                    <div id="authSuccessMsg" class="auth-msg success" style="display: none;"></div>
+
+                    <div class="form-actions">
+                        <button type="submit" id="btnSubmitAuth" class="btn-main">УВІЙТИ В АКАУНТ</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="authLoggedInView" style="display: none;">
+                <div class="modal-head">
+                    <div class="modal-pill pill-online">🟢 СИНХРОНІЗАЦІЯ АКТИВНА</div>
+                    <h3 class="modal-title" id="loggedInUsernameTitle">РОСТЕР // АСТРОНАВТ</h3>
+                    <p class="modal-desc">
+                        Вхід виконано. Ваші 2 точки маршруту прив'язані до вашого акаунту та зберігаються автоматично.
+                    </p>
+                </div>
+
+                <div class="sync-status-box">
+                    <div class="sync-row">
+                        <span class="sync-lbl">СТАТУС АКАУНТУ:</span>
+                        <span class="sync-val text-green" id="syncDbStatus">Активний // Збереження увімкнено</span>
+                    </div>
+                    <div class="sync-row">
+                        <span class="sync-lbl">ТОЧКА A (СТАРТ):</span>
+                        <span class="sync-val" id="syncDispPointA">Не встановлено</span>
+                    </div>
+                    <div class="sync-row">
+                        <span class="sync-lbl">ТОЧКА B (ФІНІШ):</span>
+                        <span class="sync-val" id="syncDispPointB">Не встановлено</span>
+                    </div>
+                </div>
+
+                <div class="logged-actions">
+                    <button id="btnSaveCurrentRoute" class="btn-main">💾 ЗБЕРЕГТИ ПОТОЧНИЙ ШЛЯХ З МАПИ</button>
+                    <button id="btnLoadSavedRoute" class="btn-sub">📥 ЗАВАНТАЖИТИ ЗБЕРЕЖЕНИЙ ШЛЯХ</button>
+                    <button id="btnLogout" class="btn-sub btn-danger">🚪 ВИЙТИ З АКАУНТУ</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Бібліотека Leaflet для 2D карти -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
