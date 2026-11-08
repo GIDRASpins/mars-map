@@ -1687,6 +1687,19 @@ let autoSaveTimer = null;
 let syncToastTimer = null;
 
 const STORAGE_CURRENT_USER_KEY = 'mars_active_user';
+const STORAGE_TOKEN_KEY = 'mars_session_token';
+
+function authHeaders(extra = {}) {
+    const token = localStorage.getItem(STORAGE_TOKEN_KEY);
+    return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
+function clearLocalSession() {
+    currentUser = null;
+    localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+    renderAuthUI(false);
+}
 
 function showSyncToast(message) {
     const toast = document.getElementById('syncToast');
@@ -1717,9 +1730,15 @@ async function saveRouteToAccount(showToast = true) {
 
         const res = await fetch('/api/save-route', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload)
         });
+
+        if (res.status === 401) {
+            clearLocalSession();
+            showSyncToast('Сесія завершилась, увійдіть знову');
+            return;
+        }
 
         if (res.ok) {
             updateModalSyncView(ptA, ptB);
@@ -1738,7 +1757,14 @@ async function loadRouteFromAccount(autoBuild = true) {
     if (!currentUser) return;
 
     try {
-        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`);
+        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`, {
+            headers: authHeaders()
+        });
+        if (res.status === 401) {
+            clearLocalSession();
+            showSyncToast('Сесія завершилась, увійдіть знову');
+            return;
+        }
         const data = await res.json();
 
         if (res.ok && data.success) {
@@ -1768,7 +1794,8 @@ function updateModalSyncView(a, b) {
 async function checkAuthSession() {
     try {
         const savedUsername = localStorage.getItem(STORAGE_CURRENT_USER_KEY);
-        if (!savedUsername) {
+        if (!savedUsername || !localStorage.getItem(STORAGE_TOKEN_KEY)) {
+            localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
             renderAuthUI(false);
             return;
         }
@@ -1777,7 +1804,13 @@ async function checkAuthSession() {
         renderAuthUI(true, currentUser);
 
         // Підтягуємо актуальні координати з PostgreSQL
-        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`);
+        const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`, {
+            headers: authHeaders()
+        });
+        if (res.status === 401) {
+            clearLocalSession();
+            return;
+        }
         if (res.ok) {
             const data = await res.json();
             updateModalSyncView(data.pointA, data.pointB);
@@ -1905,6 +1938,7 @@ function initAccountModal() {
 
                 currentUser = data.user.username;
                 localStorage.setItem(STORAGE_CURRENT_USER_KEY, currentUser);
+                localStorage.setItem(STORAGE_TOKEN_KEY, data.token);
                 renderAuthUI(true, currentUser);
                 updateModalSyncView(data.user.point_a, data.user.point_b);
 
@@ -1935,9 +1969,8 @@ function initAccountModal() {
 
     if (btnLogout) {
         btnLogout.onclick = () => {
-            currentUser = null;
-            localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
-            renderAuthUI(false);
+            fetch('/api/logout', { method: 'POST', headers: authHeaders() }).catch(() => {});
+            clearLocalSession();
             modal.style.display = 'none';
             showSyncToast('Ви вийшли з акаунту');
         };

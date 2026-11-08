@@ -1,15 +1,14 @@
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
+const crypto = require('crypto');
 const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Отримуємо URL бази з Railway
+// Railway передає підключення через DATABASE_URL або DATABASE_PUBLIC_URL
 const connectionString = process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL;
-
-console.log('🔍 Статус підключення: ', connectionString ? 'DATABASE_URL знайдено' : '❌ DATABASE_URL НЕ ЗНАЙДЕНО!');
 
 const pool = new Pool({
   connectionString: connectionString,
@@ -20,13 +19,82 @@ const pool = new Pool({
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
-// Створення таблиці
+// Віддаємо ТІЛЬКИ файли фронтенду (server.js, package.json тощо більше не доступні з браузера)
+const PUBLIC_FILES = ['index.html', 'script.js', 'style.css'];
+PUBLIC_FILES.forEach((file) => {
+  app.get('/' + file, (req, res) => res.sendFile(path.join(__dirname, file)));
+});
+
+// ============================================================================
+// ПАРОЛІ (scrypt) ТА СЕСІЇ
+// ============================================================================
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const expected = Buffer.from(hash, 'hex');
+  const actual = crypto.scryptSync(password, salt, expected.length);
+  return crypto.timingSafeEqual(expected, actual);
+}
+
+async function createSession(userId) {
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query('INSERT INTO mars_sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
+  return token;
+}
+
+async function requireAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Потрібна авторизація' });
+
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.username
+       FROM mars_sessions s
+       JOIN mars_users u ON u.id = s.user_id
+       WHERE s.token = $1`,
+      [token]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Сесія недійсна, увійдіть знову' });
+    }
+    req.user = result.rows[0];
+    req.token = token;
+    next();
+  } catch (err) {
+    console.error('Помилка requireAuth:', err);
+    res.status(500).json({ error: 'Помилка бази даних на сервері' });
+  }
+}
+
+function cleanPoint(p) {
+  if (!p) return null;
+  const lat = Number(p.lat);
+  const lon = Number(p.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon };
+}
+
+// ============================================================================
+// АВТОМАТИЧНЕ СТВОРЕННЯ ТАБЛИЦЬ В POSTGRESQL ПРИ СТАРТІ
+// ============================================================================
 async function initializeDatabase() {
-  if (!connectionString) return;
+  if (!connectionString) {
+    console.warn('⚠️ DATABASE_URL не знайдено! Перевірте вкладку Variables у Railway.');
+    return;
+  }
+
   try {
     const client = await pool.connect();
+    console.log('🔌 Підключено до PostgreSQL!');
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS mars_users (
         id SERIAL PRIMARY KEY,
@@ -37,121 +105,163 @@ async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Таблиця mars_users готова до запису');
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mars_sessions (
+        token VARCHAR(64) PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES mars_users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Унікальність логіну без урахування регістру (бо перевірка йде через LOWER)
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS mars_users_username_lower_idx
+      ON mars_users (LOWER(username));
+    `);
+
+    console.log('✅ Таблиці mars_users та mars_sessions перевірено / створено!');
     client.release();
   } catch (err) {
-    console.error('❌ Помилка БД при старті:', err.message);
+    console.error('❌ Помилка підключення/створення таблиць:', err.message);
   }
 }
+
 initializeDatabase();
 
-// Реєстрація / Вхід
-app.post('/api/auth', async (req, res) => {
-  const { username, password, mode, pointA, pointB } = req.body;
-  console.log(`📡 [Отримано запит /api/auth] Режим: ${mode}, Користувач: ${username}`);
+// ============================================================================
+// API
+// ============================================================================
 
-  if (!username || !password) {
+// Реєстрація та вхід
+app.post('/api/auth', async (req, res) => {
+  const { username, password, mode, pointA, pointB } = req.body || {};
+
+  if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || !password) {
     return res.status(400).json({ error: 'Логін та пароль є обов’язковими' });
+  }
+  const login = username.trim();
+  if (login.length > 100 || password.length > 200) {
+    return res.status(400).json({ error: 'Логін або пароль занадто довгі' });
   }
 
   try {
     const userRes = await pool.query(
       'SELECT * FROM mars_users WHERE LOWER(username) = LOWER($1)',
-      [username.trim()]
+      [login]
     );
     const existing = userRes.rows[0];
 
     if (mode === 'register') {
       if (existing) {
-        console.log(`⚠️ Користувач ${username} вже існує`);
         return res.status(400).json({ error: 'Користувач із таким логіном уже зареєстрований' });
       }
 
-      // ТУТ ВИПРАВЛЕНО: додано явний каст $3::jsonb та $4::jsonb
+      const a = cleanPoint(pointA);
+      const b = cleanPoint(pointB);
+
       const insertRes = await pool.query(
         `INSERT INTO mars_users (username, password, point_a, point_b)
-         VALUES ($1, $2, $3::jsonb, $4::jsonb)
+         VALUES ($1, $2, $3, $4)
          RETURNING id, username, point_a, point_b`,
-        [
-          username.trim(),
-          password,
-          pointA ? JSON.stringify(pointA) : null,
-          pointB ? JSON.stringify(pointB) : null
-        ]
+        [login, hashPassword(password), a ? JSON.stringify(a) : null, b ? JSON.stringify(b) : null]
       );
-
-      console.log(`🎉 [УСПІХ] Користувача ${username} успішно ЗАПИСАНО В БАЗУ з ID: ${insertRes.rows[0].id}`);
+      const user = insertRes.rows[0];
+      const token = await createSession(user.id);
 
       return res.json({
         success: true,
-        message: 'Акаунт збережено в базі даних!',
-        user: insertRes.rows[0]
-      });
-    } else {
-      // Login
-      if (!existing || existing.password !== password) {
-        return res.status(401).json({ error: 'Невірний логін або пароль' });
-      }
-
-      console.log(`🔑 [УСПІХ] Користувач ${username} увійшов в акаунт`);
-      return res.json({
-        success: true,
-        message: 'Вхід успішний!',
-        user: {
-          username: existing.username,
-          point_a: existing.point_a,
-          point_b: existing.point_b
-        }
+        message: 'Акаунт успішно зареєстровано в базі даних!',
+        token,
+        user: { username: user.username, point_a: user.point_a, point_b: user.point_b }
       });
     }
+
+    // Режим login
+    if (!existing || !verifyPassword(password, existing.password)) {
+      return res.status(401).json({ error: 'Невірний логін або пароль' });
+    }
+
+    const token = await createSession(existing.id);
+    return res.json({
+      success: true,
+      message: 'Вхід успішний!',
+      token,
+      user: {
+        username: existing.username,
+        point_a: existing.point_a,
+        point_b: existing.point_b
+      }
+    });
   } catch (err) {
-    console.error('❌ ПОМИЛКА SQL В /api/auth:', err);
-    res.status(500).json({ error: 'Помилка бази даних: ' + err.message });
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Користувач із таким логіном уже зареєстрований' });
+    }
+    console.error('Помилка /api/auth:', err);
+    res.status(500).json({ error: 'Помилка бази даних на сервері' });
   }
 });
 
-// Збереження точок
-app.post('/api/save-route', async (req, res) => {
-  const { username, pointA, pointB } = req.body;
-
-  if (!username) return res.status(400).json({ error: 'Користувача не вказано' });
-
+// Вихід (видаляє сесію)
+app.post('/api/logout', requireAuth, async (req, res) => {
   try {
-    // ТУТ ВИПРАВЛЕНО: додано явний каст $1::jsonb та $2::jsonb
-    await pool.query(
-      `UPDATE mars_users
-       SET point_a = $1::jsonb, point_b = $2::jsonb, updated_at = NOW()
-       WHERE LOWER(username) = LOWER($3)`,
-      [
-        pointA ? JSON.stringify(pointA) : null,
-        pointB ? JSON.stringify(pointB) : null,
-        username.trim()
-      ]
-    );
-
-    console.log(`💾 Маршрут користувача ${username} оновлено в базі`);
+    await pool.query('DELETE FROM mars_sessions WHERE token = $1', [req.token]);
     res.json({ success: true });
   } catch (err) {
-    console.error('❌ ПОМИЛКА SQL В /api/save-route:', err);
-    res.status(500).json({ error: 'Не вдалося зберегти точки: ' + err.message });
+    console.error('Помилка /api/logout:', err);
+    res.status(500).json({ error: 'Помилка бази даних на сервері' });
   }
 });
 
-// Завантаження точок
-app.get('/api/load-route/:username', async (req, res) => {
-  const { username } = req.params;
+// Збереження точок маршруту (тільки для власника сесії)
+app.post('/api/save-route', requireAuth, async (req, res) => {
+  const { pointA, pointB } = req.body || {};
+  const a = cleanPoint(pointA);
+  const b = cleanPoint(pointB);
+
+  try {
+    await pool.query(
+      `UPDATE mars_users
+       SET point_a = $1, point_b = $2, updated_at = NOW()
+       WHERE id = $3`,
+      [a ? JSON.stringify(a) : null, b ? JSON.stringify(b) : null, req.user.id]
+    );
+
+    res.json({ success: true, message: 'Маршрут збережено в PostgreSQL' });
+  } catch (err) {
+    console.error('Помилка /api/save-route:', err);
+    res.status(500).json({ error: 'Не вдалося зберегти маршрут' });
+  }
+});
+
+// Завантаження збережених точок (тільки свої)
+app.get('/api/load-route/:username', requireAuth, async (req, res) => {
+  if (req.params.username.trim().toLowerCase() !== req.user.username.toLowerCase()) {
+    return res.status(403).json({ error: 'Немає доступу до чужого акаунту' });
+  }
+
   try {
     const result = await pool.query(
-      'SELECT point_a, point_b FROM mars_users WHERE LOWER(username) = LOWER($1)',
-      [username.trim()]
+      'SELECT point_a, point_b FROM mars_users WHERE id = $1',
+      [req.user.id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Не знайдено' });
-    res.json({ success: true, pointA: result.rows[0].point_a, pointB: result.rows[0].point_b });
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Користувача не знайдено' });
+    }
+
+    res.json({
+      success: true,
+      pointA: result.rows[0].point_a,
+      pointB: result.rows[0].point_b
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Помилка /api/load-route:', err);
+    res.status(500).json({ error: 'Помилка зчитування з бази даних' });
   }
 });
 
+// Маршрутизація сторінки
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
