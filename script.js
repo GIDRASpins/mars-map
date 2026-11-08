@@ -1163,38 +1163,70 @@ window.setPresetRoute = function(lat1, lon1, lat2, lon2) {
 };
 
 // ============================================================================
-// 9. АЛГОРИТМ A*
+// 9. НАВІГАЦІЙНА МОДЕЛЬ: A* НА СФЕРІ + ANY-ANGLE ЗГЛАДЖУВАННЯ
 // ============================================================================
+// Модель:
+//  1) Поверхня — сферичний ґрід (широта/довгота) з висотами MOLA, локальним градієнтом
+//     (базис ~7 км), маскою небезпечних зон із буфером безпеки та маскою безпечних зон.
+//  2) Вартість кроку = ортодромічна відстань × (фактор нахилу + штраф зони) × бонус безпечної зони.
+//     Нахил кроку = max(середній нахил між вузлами, локальний градієнт) — тому бокові схили теж штрафуються.
+//  3) Пошук: A* із 16 напрямками (без «перекосу» по 45°) і допустимою евристикою
+//     h = мін.фактор × ортодромія до цілі.
+//  4) Any-angle згладжування: відрізки ґрідової ламаної заміняються ортодромією, якщо вона не дорожча.
+//     Маршрут починається точно в A і закінчується точно в B.
+//  5) Профіль висот і статистика рахуються по рівномірній вибірці вздовж маршруту
+//     за точною функцією getMolaElevation.
+const NAV_DEG = Math.PI / 180;
+const NAV_KM_PER_DEG = MARS_RADIUS_KM * NAV_DEG;
+const NAV_GRAD_BASE_DEG = 0.12;          // базис градієнта ≈ 7 км
+const NAV_BUFFER_KM = 15;                // буфер безпеки навколо небезпечних зон
+const NAV_SAFE_LIMIT_DEG = 15;           // «м'яка» межа нахилу, безпечний режим
+const NAV_FAST_LIMIT_DEG = 25;           // «м'яка» межа нахилу, швидкий режим
+const NAV_DIRS = [
+    [-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1],
+    [-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]
+];
+
 class FastMinHeap {
-    constructor(capacity) {
+    constructor(capacity = 1024) {
         this.nodes = new Int32Array(capacity);
-        this.costs = new Float32Array(capacity);
+        this.costs = new Float64Array(capacity);
         this.size = 0;
     }
+    grow() {
+        const cap = this.nodes.length * 2;
+        const n = new Int32Array(cap); n.set(this.nodes);
+        const c = new Float64Array(cap); c.set(this.costs);
+        this.nodes = n; this.costs = c;
+    }
     push(node, cost) {
+        if (this.size === this.nodes.length) this.grow();
         let i = this.size++;
         this.nodes[i] = node;
         this.costs[i] = cost;
         while (i > 0) {
-            let p = (i - 1) >> 1;
+            const p = (i - 1) >> 1;
             if (this.costs[i] < this.costs[p]) {
-                let tn = this.nodes[i]; this.nodes[i] = this.nodes[p]; this.nodes[p] = tn;
-                let tc = this.costs[i]; this.costs[i] = this.costs[p]; this.costs[p] = tc;
+                const tn = this.nodes[i]; this.nodes[i] = this.nodes[p]; this.nodes[p] = tn;
+                const tc = this.costs[i]; this.costs[i] = this.costs[p]; this.costs[p] = tc;
                 i = p;
             } else break;
         }
     }
     pop() {
         if (this.size === 0) return -1;
-        let top = this.nodes[0], last = --this.size;
+        const top = this.nodes[0];
+        const last = --this.size;
         this.nodes[0] = this.nodes[last];
         this.costs[0] = this.costs[last];
-        let i = 0, half = this.size >> 1;
+        let i = 0;
+        const half = this.size >> 1;
         while (i < half) {
-            let l = (i << 1) + 1, r = l + 1, best = (r < this.size && this.costs[r] < this.costs[l]) ? r : l;
+            const l = (i << 1) + 1, r = l + 1;
+            const best = (r < this.size && this.costs[r] < this.costs[l]) ? r : l;
             if (this.costs[best] < this.costs[i]) {
-                let tn = this.nodes[i]; this.nodes[i] = this.nodes[best]; this.nodes[best] = tn;
-                let tc = this.costs[i]; this.costs[i] = this.costs[best]; this.costs[best] = tc;
+                const tn = this.nodes[i]; this.nodes[i] = this.nodes[best]; this.nodes[best] = tn;
+                const tc = this.costs[i]; this.costs[i] = this.costs[best]; this.costs[best] = tc;
                 i = best;
             } else break;
         }
@@ -1202,215 +1234,455 @@ class FastMinHeap {
     }
 }
 
-function runRealTerrainAStar(startPt, endPt, mode) {
-    const totalDist = calculateMarsDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
-    const padLat = Math.max(20.0, Math.min(50.0, totalDist / 45.0 + 14.0));
-    const padLon = Math.max(40.0, Math.min(85.0, totalDist / 30.0 + 30.0));
+// ---------- Геометрія на сфері ----------
+function navToVec(lat, lon) {
+    const la = lat * NAV_DEG, lo = lon * NAV_DEG;
+    const c = Math.cos(la);
+    return [c * Math.cos(lo), c * Math.sin(lo), Math.sin(la)];
+}
 
-    const minLat = Math.max(-88, Math.min(startPt.lat, endPt.lat) - padLat);
-    const maxLat = Math.min(88, Math.max(startPt.lat, endPt.lat) + padLat);
+// Ортодромія між двома точками; lon2 береться в «розгорнутій» системі відносно lon1
+function makeGreatCircle(lat1, lon1, lat2, lon2) {
+    const p1 = navToVec(lat1, lon1), p2 = navToVec(lat2, lon2);
+    let dot = p1[0] * p2[0] + p1[1] * p2[1] + p1[2] * p2[2];
+    dot = Math.max(-1, Math.min(1, dot));
+    const omega = Math.acos(dot);
+    const sinO = Math.sin(omega);
+    return {
+        distKm: omega * MARS_RADIUS_KM,
+        at(t) {
+            if (omega < 1e-9 || sinO < 1e-9) {
+                return { lat: lat1 + (lat2 - lat1) * t, lon: lon1 + (lon2 - lon1) * t };
+            }
+            const a = Math.sin((1 - t) * omega) / sinO;
+            const b = Math.sin(t * omega) / sinO;
+            const x = a * p1[0] + b * p2[0];
+            const y = a * p1[1] + b * p2[1];
+            const z = a * p1[2] + b * p2[2];
+            const lat = Math.asin(Math.max(-1, Math.min(1, z))) / NAV_DEG;
+            const lonN = Math.atan2(y, x) / NAV_DEG;
+            // розгортаємо довготу поруч із lon1, щоб не було стрибків через ±180°
+            return { lat, lon: lonN + 360 * Math.round((lon1 - lonN) / 360) };
+        }
+    };
+}
 
-    const dLon = endPt.lon - startPt.lon;
-    const shortestDLon = ((dLon + 180) % 360 + 360) % 360 - 180;
-    const unwrappedEndLon = startPt.lon + shortestDLon;
+// ---------- Підготовка ґріду місцевості (спільна для обох режимів) ----------
+let navGridCache = {};
 
-    const minLon = Math.min(startPt.lon, unwrappedEndLon) - padLon;
-    const maxLon = Math.max(startPt.lon, unwrappedEndLon) + padLon;
+function buildTerrainGrid(startPt, endPt, padScale = 1) {
+    const shortestDLon = ((endPt.lon - startPt.lon + 180) % 360 + 360) % 360 - 180;
+    const endLonU = startPt.lon + shortestDLon;
 
-    const ROWS = 85, COLS = 85, TOTAL = ROWS * COLS;
-    const latStep = (maxLat - minLat) / (ROWS - 1);
-    const lonStep = (maxLon - minLon) / (COLS - 1);
+    const latLo = Math.min(startPt.lat, endPt.lat), latHi = Math.max(startPt.lat, endPt.lat);
+    const spanDeg = Math.max(latHi - latLo, Math.abs(shortestDLon), 1);
+    const padLat = Math.max(6, Math.min(70, (0.35 * spanDeg + 5) * padScale));
+    const midCos = Math.max(0.3, Math.cos(((latLo + latHi) / 2) * NAV_DEG));
+    const padLon = Math.min(120, padLat / midCos);
 
-    const latGrid = new Float32Array(ROWS), lonGrid = new Float32Array(COLS);
-    const elevGrid = new Float32Array(TOTAL), hazardGrid = new Uint8Array(TOTAL), safeGrid = new Uint8Array(TOTAL);
+    const minLat = Math.max(-89.5, Math.min(latLo - padLat, latLo));
+    const maxLat = Math.min(89.5, Math.max(latHi + padLat, latHi));
+    let minLon = Math.min(startPt.lon, endLonU) - padLon;
+    let maxLon = Math.max(startPt.lon, endLonU) + padLon;
+    if (maxLon - minLon > 350) {
+        const extra = (maxLon - minLon - 350) / 2;
+        minLon += extra; maxLon -= extra;
+    }
 
-    for (let r = 0; r < ROWS; r++) latGrid[r] = minLat + r * latStep;
-    for (let c = 0; c < COLS; c++) lonGrid[c] = minLon + c * lonStep;
+    const latRange = maxLat - minLat, lonRange = maxLon - minLon;
+    const step = Math.max(0.12, Math.max(latRange, lonRange) / 240);
+    const rows = Math.ceil(latRange / step) + 1;
+    const cols = Math.ceil(lonRange / step) + 1;
+    const latStep = latRange / (rows - 1), lonStep = lonRange / (cols - 1);
+    const total = rows * cols;
+    const cellKm = Math.max(latStep, lonStep) * NAV_KM_PER_DEG;
 
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            const idx = r * COLS + c;
-            const lat = latGrid[r];
-            const normL = normalizeLon(lonGrid[c]);
-            elevGrid[idx] = getMolaElevation(lat, normL);
+    const latGrid = new Float64Array(rows), lonGrid = new Float64Array(cols);
+    for (let r = 0; r < rows; r++) latGrid[r] = minLat + r * latStep;
+    for (let c = 0; c < cols; c++) lonGrid[c] = minLon + c * lonStep;
+
+    const elev = new Float32Array(total);
+    const grad = new Float32Array(total);          // локальний нахил, м/м
+    const zoneH = new Uint8Array(total);           // 0 — вільно, 1 — буфер, 2 — усередині небезпечної зони
+    const zoneS = new Uint8Array(total);           // 1 — безпечна зона
+    const insideH = new Uint8Array(total);
+
+    const d = NAV_GRAD_BASE_DEG / 2;
+    for (let r = 0; r < rows; r++) {
+        const lat = latGrid[r];
+        const cosLat = Math.max(0.05, Math.cos(lat * NAV_DEG));
+        for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            const lonN = normalizeLon(lonGrid[c]);
+            elev[idx] = getMolaElevation(lat, lonN);
+
+            const gLat = (getMolaElevation(Math.min(90, lat + d), lonN) - getMolaElevation(Math.max(-90, lat - d), lonN))
+                / (NAV_GRAD_BASE_DEG * NAV_KM_PER_DEG * 1000);
+            const gLon = (getMolaElevation(lat, normalizeLon(lonGrid[c] + d)) - getMolaElevation(lat, normalizeLon(lonGrid[c] - d)))
+                / (NAV_GRAD_BASE_DEG * NAV_KM_PER_DEG * cosLat * 1000);
+            grad[idx] = Math.hypot(gLat, gLon);
 
             if (hazardsAvoidanceActive) {
-                for (let z of HAZARD_ZONES) {
-                    if (isPointInPolygon(lat, normL, z.coords, z.bbox)) {
-                        hazardGrid[idx] = 1;
-                        break;
-                    }
+                for (const z of HAZARD_ZONES) {
+                    if (isPointInPolygon(lat, lonN, z.smoothCoords, z.bbox)) { insideH[idx] = 1; break; }
                 }
             }
-
-            for (let z of SAFE_ZONES) {
-                if (isPointInPolygon(lat, normL, z.coords, z.bbox)) {
-                    safeGrid[idx] = 1;
-                    break;
-                }
+            for (const z of SAFE_ZONES) {
+                if (isPointInPolygon(lat, lonN, z.smoothCoords, z.bbox)) { zoneS[idx] = 1; break; }
             }
         }
     }
 
-    const startR = Math.max(0, Math.min(ROWS - 1, Math.round((startPt.lat - minLat) / latStep)));
-    const startC = Math.max(0, Math.min(COLS - 1, Math.round((startPt.lon - minLon) / lonStep)));
-    const endR = Math.max(0, Math.min(ROWS - 1, Math.round((endPt.lat - minLat) / latStep)));
-    const endC = Math.max(0, Math.min(COLS - 1, Math.round((unwrappedEndLon - minLon) / lonStep)));
-    const startIdx = startR * COLS + startC, endIdx = endR * COLS + endC;
+    // Буфер безпеки навколо небезпечних зон: квадратне розширення маски на m клітинок
+    const m = Math.max(1, Math.min(3, Math.ceil(NAV_BUFFER_KM / cellKm)));
+    const tmp = new Uint8Array(total), near = new Uint8Array(total);
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            let v = 0;
+            for (let k = Math.max(0, c - m); k <= Math.min(cols - 1, c + m) && !v; k++) v = insideH[r * cols + k];
+            tmp[r * cols + c] = v;
+        }
+    }
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            let v = 0;
+            for (let k = Math.max(0, r - m); k <= Math.min(rows - 1, r + m) && !v; k++) v = tmp[k * cols + c];
+            near[r * cols + c] = v;
+        }
+    }
+    for (let i = 0; i < total; i++) zoneH[i] = insideH[i] ? 2 : (near[i] ? 1 : 0);
 
-    const gScore = new Float32Array(TOTAL).fill(Infinity);
-    const cameFrom = new Int32Array(TOTAL).fill(-1);
-    const closed = new Uint8Array(TOTAL);
-    const heap = new FastMinHeap(TOTAL * 3);
+    // Таблиця відстаней між сусідніми вузлами (залежить лише від рядка й напрямку)
+    const distTbl = new Float64Array(rows * NAV_DIRS.length).fill(Infinity);
+    for (let r = 0; r < rows; r++) {
+        for (let k = 0; k < NAV_DIRS.length; k++) {
+            const nr = r + NAV_DIRS[k][0];
+            if (nr < 0 || nr >= rows) continue;
+            distTbl[r * NAV_DIRS.length + k] = calculateMarsDistance(
+                latGrid[r], 0, latGrid[nr], NAV_DIRS[k][1] * lonStep
+            );
+        }
+    }
 
+    return { rows, cols, total, minLat, minLon, latStep, lonStep, cellKm,
+             latGrid, lonGrid, elev, grad, zoneH, zoneS, distTbl, endLonU };
+}
+
+// ---------- Модель вартості ----------
+function navSlopeFactor(thetaDeg, mode) {
+    if (mode === 'safe') {
+        let f = 1 + (thetaDeg / 7) ** 2;
+        if (thetaDeg > NAV_SAFE_LIMIT_DEG) f += 40 + 25 * (thetaDeg - NAV_SAFE_LIMIT_DEG);
+        return f;
+    }
+    let f = 1 + (thetaDeg / 14) ** 2;
+    if (thetaDeg > NAV_FAST_LIMIT_DEG) f += 40 + 25 * (thetaDeg - NAV_FAST_LIMIT_DEG);
+    return f;
+}
+
+// Штраф і бонус зони для режиму: [додаток до фактора, множник]
+function navZoneTerms(zh, zs, mode) {
+    if (mode === 'safe') {
+        const add = zh === 2 ? 50 : (zh === 1 ? 1.5 : 0);
+        return [add, zs ? 0.8 : 1.0];
+    }
+    return [zh === 2 ? 0.15 : 0, 1.0];
+}
+
+function navEdgeCost(distKm, h1, h2, g1, g2, add, mul, mode) {
+    const slope = Math.max(Math.abs(h2 - h1) / (distKm * 1000), 0.5 * (g1 + g2));
+    const theta = Math.atan(slope) / NAV_DEG;
+    return distKm * (navSlopeFactor(theta, mode) + add) * mul;
+}
+
+// ---------- A* по ґріду ----------
+function planGridPath(grid, startPt, endPt, mode) {
+    const { rows, cols, total, latGrid, lonGrid, elev, grad, zoneH, zoneS, distTbl, minLat, minLon, latStep, lonStep } = grid;
+    const NDIR = NAV_DIRS.length;
+
+    const nearestCell = (lat, lonU) => {
+        const r = Math.max(0, Math.min(rows - 1, Math.round((lat - minLat) / latStep)));
+        const c = Math.max(0, Math.min(cols - 1, Math.round((lonU - minLon) / lonStep)));
+        return [r, c];
+    };
+    const [startR, startC] = nearestCell(startPt.lat, startPt.lon);
+    const [endR, endC] = nearestCell(endPt.lat, grid.endLonU);
+    const startIdx = startR * cols + startC, endIdx = endR * cols + endC;
+    if (startIdx === endIdx) return [];
+
+    // Попередньо розраховані штрафи/бонуси зон для режиму
+    const zAdd = new Float32Array(total), zMul = new Float32Array(total);
+    for (let i = 0; i < total; i++) {
+        const t = navZoneTerms(zoneH[i], zoneS[i], mode);
+        zAdd[i] = t[0]; zMul[i] = t[1];
+    }
+    const minF = mode === 'safe' ? 0.8 : 1.0;
+
+    // Евристика: мін.фактор × ортодромія до цілі (допустима й узгоджена)
+    const hArr = new Float32Array(total);
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            hArr[r * cols + c] = minF * calculateMarsDistance(latGrid[r], lonGrid[c], latGrid[endR], lonGrid[endC]);
+        }
+    }
+
+    const gScore = new Float64Array(total).fill(Infinity);
+    const cameFrom = new Int32Array(total).fill(-1);
+    const closed = new Uint8Array(total);
+    const heap = new FastMinHeap(8192);
     gScore[startIdx] = 0;
-    heap.push(startIdx, 0);
+    heap.push(startIdx, hArr[startIdx]);
 
-    const dr = [-1, -1, -1, 0, 0, 1, 1, 1];
-    const dc = [-1, 0, 1, -1, 1, -1, 0, 1];
     let found = false;
-
     while (heap.size > 0) {
-        const curIdx = heap.pop();
-        if (curIdx === -1) break;
-        if (closed[curIdx] === 1) continue;
-        closed[curIdx] = 1;
+        const cur = heap.pop();
+        if (cur === -1) break;
+        if (closed[cur]) continue;
+        closed[cur] = 1;
+        if (cur === endIdx) { found = true; break; }
 
-        if (curIdx === endIdx) { found = true; break; }
+        const cr = (cur / cols) | 0, cc = cur - cr * cols;
+        for (let k = 0; k < NDIR; k++) {
+            const nr = cr + NAV_DIRS[k][0], nc = cc + NAV_DIRS[k][1];
+            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+            const nIdx = nr * cols + nc;
+            if (closed[nIdx]) continue;
 
-        const curR = (curIdx / COLS) | 0, curC = curIdx % COLS;
-        const curElev = elevGrid[curIdx];
-
-        for (let i = 0; i < 8; i++) {
-            const nr = curR + dr[i], nc = curC + dc[i];
-            if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
-            const nIdx = nr * COLS + nc;
-            if (closed[nIdx] === 1) continue;
-
-            const stepDist = Math.hypot(
-                (latGrid[nr] - latGrid[curR]) * 59.2,
-                (lonGrid[nc] - lonGrid[curC]) * 59.2 * Math.cos(latGrid[curR] * Math.PI / 180)
-            ) || 1;
-
-            const elevDiff = Math.abs(elevGrid[nIdx] - curElev);
-            const slopeDeg = Math.atan2(elevDiff, stepDist * 1000) * (180 / Math.PI);
-
-            let cost = stepDist;
-
-            if (mode === 'safe') {
-                if (slopeDeg < 3.5) {
-                    cost *= 1.0;
-                } else if (slopeDeg < 8.0) {
-                    cost *= (1.0 + Math.pow(slopeDeg / 4.0, 1.8));
-                } else if (slopeDeg < 14.0) {
-                    cost *= (4.0 + Math.pow(slopeDeg / 3.5, 2.5));
-                } else if (slopeDeg < 19.0) {
-                    cost += 9000 + stepDist * (40.0 + Math.pow(slopeDeg - 10, 2.8));
-                } else {
-                    cost += 65000 + stepDist * 850.0;
-                }
-
-                if (curElev - elevGrid[nIdx] > 1100) {
-                    cost += 48000 + (curElev - elevGrid[nIdx]) * 35.0;
-                }
-                if (safeGrid[nIdx] === 1) cost *= 0.45;
-                if (hazardGrid[nIdx] === 1) cost += 22000 + stepDist * 280.0;
+            const distKm = distTbl[cr * NDIR + k];
+            let add, mul;
+            if (k < 8) {
+                add = 0.5 * (zAdd[cur] + zAdd[nIdx]);
+                mul = 0.5 * (zMul[cur] + zMul[nIdx]);
             } else {
-                cost = stepDist * (1.0 + Math.pow(slopeDeg / 6.0, 1.5));
-                if (slopeDeg >= 22.0 || Math.abs(elevDiff) > 2200) {
-                    cost += 15000 + stepDist * 90.0;
+                // «ходи конем» проходять між двома проміжними клітинками — враховуємо їх
+                const dr = NAV_DIRS[k][0], dc = NAV_DIRS[k][1];
+                let m1, m2;
+                if (Math.abs(dr) === 2) {
+                    m1 = (cr + dr / 2) * cols + cc;
+                    m2 = (cr + dr / 2) * cols + (cc + dc);
+                } else {
+                    m1 = cr * cols + (cc + dc / 2);
+                    m2 = (cr + dr) * cols + (cc + dc / 2);
                 }
-                if (hazardGrid[nIdx] === 1) cost += stepDist * 1.5;
+                add = 0.25 * (zAdd[cur] + zAdd[m1] + zAdd[m2] + zAdd[nIdx]);
+                mul = 0.25 * (zMul[cur] + zMul[m1] + zMul[m2] + zMul[nIdx]);
             }
 
-            const tentG = gScore[curIdx] + cost;
+            const cost = navEdgeCost(distKm, elev[cur], elev[nIdx], grad[cur], grad[nIdx], add, mul, mode);
+            const tentG = gScore[cur] + cost;
             if (tentG < gScore[nIdx]) {
                 gScore[nIdx] = tentG;
-                cameFrom[nIdx] = curIdx;
-                const h = Math.hypot(
-                    (latGrid[endR] - latGrid[nr]) * 59.2,
-                    (lonGrid[endC] - lonGrid[nc]) * 59.2 * Math.cos(latGrid[nr] * Math.PI / 180)
-                );
-                heap.push(nIdx, tentG + h);
+                cameFrom[nIdx] = cur;
+                heap.push(nIdx, tentG + hArr[nIdx]);
             }
         }
     }
 
+    // Якщо ціль недосяжна (практично не трапляється) — найближча досягнута клітинка
     let pIdx = found ? endIdx : -1;
     if (pIdx === -1) {
-        let bestDist = Infinity;
-        for (let i = 0; i < TOTAL; i++) {
-            if (closed[i] === 1) {
-                const r = (i / COLS) | 0, c = i % COLS;
-                const d = Math.hypot(r - endR, c - endC);
-                if (d < bestDist) { bestDist = d; pIdx = i; }
+        let best = Infinity;
+        for (let i = 0; i < total; i++) {
+            if (closed[i]) {
+                const r = (i / cols) | 0, c = i - r * cols;
+                const dd = Math.hypot(r - endR, c - endC);
+                if (dd < best) { best = dd; pIdx = i; }
             }
         }
     }
 
-    const path = [];
-    let cur = pIdx;
-    while (cur !== -1) {
-        const r = (cur / COLS) | 0;
-        const c = cur % COLS;
-        path.push({
-            lat: latGrid[r],
-            lon: normalizeLon(lonGrid[c]),
-            unwrappedLon: lonGrid[c],
-            alt: elevGrid[cur]
-        });
+    const nodes = [];
+    for (let cur = pIdx; cur !== -1; cur = cameFrom[cur]) {
+        const r = (cur / cols) | 0, c = cur - r * cols;
+        nodes.push({ lat: latGrid[r], lon: lonGrid[c] });
         if (cur === startIdx) break;
-        cur = cameFrom[cur];
     }
-    path.reverse();
+    nodes.reverse();
+    return nodes;
+}
 
-    let totalDistKm = 0, peakSlope = 0, asc = 0, desc = 0, hazardHitCount = 0;
+// ---------- Вибірка місцевості в довільній точці ----------
+function navSampleTerrain(grid, lat, lonU, mode, out) {
+    const { rows, cols, minLat, minLon, latStep, lonStep, elev, grad, zoneH, zoneS } = grid;
+    const fr = (lat - minLat) / latStep, fc = (lonU - minLon) / lonStep;
+    const r0 = Math.max(0, Math.min(rows - 2, Math.floor(fr)));
+    const c0 = Math.max(0, Math.min(cols - 2, Math.floor(fc)));
+    const tr = Math.max(0, Math.min(1, fr - r0)), tc = Math.max(0, Math.min(1, fc - c0));
+    const i00 = r0 * cols + c0, i01 = i00 + 1, i10 = i00 + cols, i11 = i10 + 1;
+    const w00 = (1 - tr) * (1 - tc), w01 = (1 - tr) * tc, w10 = tr * (1 - tc), w11 = tr * tc;
+    out.h = elev[i00] * w00 + elev[i01] * w01 + elev[i10] * w10 + elev[i11] * w11;
+    out.g = grad[i00] * w00 + grad[i01] * w01 + grad[i10] * w10 + grad[i11] * w11;
+    const near = tr < 0.5 ? (tc < 0.5 ? i00 : i01) : (tc < 0.5 ? i10 : i11);
+    const t = navZoneTerms(zoneH[near], zoneS[near], mode);
+    out.add = t[0]; out.mul = t[1];
+    return out;
+}
 
+// Вартість руху по ортодромії між двома точками (вибірка кожні ~півклітинки)
+function navSegmentCost(grid, a, b, mode) {
+    const gc = makeGreatCircle(a.lat, a.lon, b.lat, b.lon);
+    if (gc.distKm < 1e-6) return 0;
+    const n = Math.max(1, Math.ceil(gc.distKm / Math.max(1.5, grid.cellKm * 0.5)));
+    const stepKm = gc.distKm / n;
+    let prev = navSampleTerrain(grid, a.lat, a.lon, mode, {});
+    let total = 0;
+    for (let k = 1; k <= n; k++) {
+        const p = gc.at(k / n);
+        const cur = navSampleTerrain(grid, p.lat, p.lon, mode, {});
+        total += navEdgeCost(stepKm, prev.h, cur.h, prev.g, cur.g,
+            0.5 * (prev.add + cur.add), 0.5 * (prev.mul + cur.mul), mode);
+        prev = cur;
+    }
+    return total;
+}
+
+// ---------- Any-angle згладжування ----------
+function smoothNavPath(grid, nodes, mode) {
+    if (nodes.length <= 2) return nodes;
+    const prefix = [0];
+    for (let i = 1; i < nodes.length; i++) {
+        prefix.push(prefix[i - 1] + navSegmentCost(grid, nodes[i - 1], nodes[i], mode));
+    }
+    const out = [nodes[0]];
+    let i = 0;
+    const MAX_LOOKAHEAD = 40;
+    while (i < nodes.length - 1) {
+        let best = i + 1;
+        for (let j = i + 2; j < nodes.length && j <= i + MAX_LOOKAHEAD; j++) {
+            const direct = navSegmentCost(grid, nodes[i], nodes[j], mode);
+            if (direct <= (prefix[j] - prefix[i]) * 1.002) best = j;
+            else if (j - best >= 6) break;
+        }
+        out.push(nodes[best]);
+        i = best;
+    }
+    return out;
+}
+
+// ---------- Рівномірна вибірка вздовж маршруту ----------
+function resampleNavPath(nodes) {
+    const segs = [];
+    let L = 0;
+    for (let i = 1; i < nodes.length; i++) {
+        const gc = makeGreatCircle(nodes[i - 1].lat, nodes[i - 1].lon, nodes[i].lat, nodes[i].lon);
+        segs.push({ gc, start: L });
+        L += gc.distKm;
+    }
+    const n = Math.max(60, Math.min(600, Math.ceil(L / 3))) + 1;
+    const pts = [];
+    let si = 0;
+    for (let i = 0; i < n; i++) {
+        const s = L * i / (n - 1);
+        while (si < segs.length - 1 && s > segs[si].start + segs[si].gc.distKm) si++;
+        const seg = segs[si];
+        const t = seg.gc.distKm > 1e-9 ? Math.max(0, Math.min(1, (s - seg.start) / seg.gc.distKm)) : 0;
+        const p = seg.gc.at(t);
+        pts.push({ lat: p.lat, lonU: p.lon });
+    }
+    // кінці — точно в A і B
+    pts[0] = { lat: nodes[0].lat, lonU: nodes[0].lon };
+    pts[n - 1] = { lat: nodes[nodes.length - 1].lat, lonU: nodes[nodes.length - 1].lon };
+    return { pts, L };
+}
+
+function getNavGrid(startPt, endPt, padScale) {
+    const key = `${startPt.lat},${startPt.lon}|${endPt.lat},${endPt.lon}|${hazardsAvoidanceActive}`;
+    if (navGridCache.key !== key) navGridCache = { key, grids: {} };
+    if (!navGridCache.grids[padScale]) navGridCache.grids[padScale] = buildTerrainGrid(startPt, endPt, padScale);
+    return navGridCache.grids[padScale];
+}
+
+// Якщо безпечний маршрут усе ще перетинає небезпечні зони, розширюємо область пошуку
+// (можливо, обхід лежить за межами початкового вікна) і беремо кращий варіант.
+function runRealTerrainAStar(startPt, endPt, mode) {
+    let best = computeNavRoute(startPt, endPt, mode, 1);
+    if (mode === 'safe' && hazardsAvoidanceActive && best.hazardHits > 0) {
+        for (const scale of [2.2, 4]) {
+            const alt = computeNavRoute(startPt, endPt, mode, scale);
+            if (alt.hazardHits < best.hazardHits ||
+                (alt.hazardHits === best.hazardHits && alt.totalDist < best.totalDist - 1)) {
+                best = alt;
+            }
+            if (best.hazardHits === 0) break;
+        }
+    }
+    return best;
+}
+
+function computeNavRoute(startPt, endPt, mode, padScale) {
+    const grid = getNavGrid(startPt, endPt, padScale);
+
+    const A = { lat: startPt.lat, lon: startPt.lon };
+    const B = { lat: endPt.lat, lon: grid.endLonU };
+    const directKm = calculateMarsDistance(A.lat, A.lon, B.lat, B.lon);
+
+    let nodes = [A, B];
+    if (directKm > 0.5) {
+        const gridNodes = planGridPath(grid, A, B, mode);
+        nodes = [A, ...gridNodes, B];
+        nodes = smoothNavPath(grid, nodes, mode);
+    }
+
+    const { pts, L } = resampleNavPath(nodes);
+    const spacing = L / Math.max(1, pts.length - 1);
+
+    const path = pts.map(p => {
+        const lon = normalizeLon(p.lonU);
+        return { lat: p.lat, lon, unwrappedLon: p.lonU, alt: getMolaElevation(p.lat, lon) };
+    });
+
+    // --- Статистика по точному профілю ---
+    let asc = 0, desc = 0;
     for (let i = 1; i < path.length; i++) {
-        const d = calculateMarsDistance(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
-        totalDistKm += d;
         const diff = path[i].alt - path[i - 1].alt;
         if (diff > 0) asc += diff; else desc -= diff;
-        const slope = Math.atan2(Math.abs(diff), Math.max(1, d * 1000)) * (180 / Math.PI);
-        if (slope > peakSlope) peakSlope = slope;
     }
+    const k = Math.max(1, Math.ceil(8 / Math.max(spacing, 1e-6)));  // базис нахилу ≈ 8 км
+    let peakSlope = 0, steepCount = 0, windows = 0;
+    for (let i = 0; i + k < path.length; i++) {
+        const slope = Math.atan(Math.abs(path[i + k].alt - path[i].alt) / (k * spacing * 1000)) / NAV_DEG;
+        if (slope > peakSlope) peakSlope = slope;
+        if (slope > 10) steepCount++;
+        windows++;
+    }
+    const steepFrac = windows ? steepCount / windows : 0;
 
-    for (let pt of path) {
-        for (let z of HAZARD_ZONES) {
-            if (isPointInPolygon(pt.lat, pt.lon, z.coords, z.bbox)) {
-                hazardHitCount++;
-                break;
-            }
+    let hazardHits = 0;
+    for (const pt of path) {
+        for (const z of HAZARD_ZONES) {
+            if (isPointInPolygon(pt.lat, pt.lon, z.smoothCoords, z.bbox)) { hazardHits++; break; }
         }
     }
+    const hazardKm = hazardHits * spacing;
+    const hazardFrac = hazardHits / path.length;
+    const detourPct = directKm > 0.5 ? Math.max(0, (L / directKm - 1) * 100) : 0;
 
-    let diagnosis = "ШЛЯХ ПОБУДОВАНО УСПІШНО.";
-    let safetyScore = 95;
+    const safetyScore = Math.max(5, Math.min(99, Math.round(
+        100 - 120 * hazardFrac - 60 * steepFrac - 1.5 * Math.max(0, peakSlope - 12) - (hazardHits > 0 ? 8 : 0)
+    )));
 
+    let diagnosis;
     if (mode === 'safe') {
-        if (hazardHitCount === 0 && peakSlope < 12.0) {
-            diagnosis = "БЕЗПЕЧНИЙ МАРШРУТ: Всі урвища оминуто. Пологий рельєф.";
-            safetyScore = 98;
-        } else if (hazardHitCount === 0) {
-            diagnosis = `БЕЗПЕЧНИЙ МАРШРУТ: Обійдено небезпечні зони. Макс. нахил ${peakSlope.toFixed(1)}°.`;
-            safetyScore = 88;
+        if (!hazardsAvoidanceActive) {
+            diagnosis = `ОБХІД ЗОН ВИМКНЕНО: маршрут оптимізовано лише за рельєфом. Макс. нахил ${peakSlope.toFixed(1)}°.`;
+        } else if (hazardHits === 0) {
+            diagnosis = `БЕЗПЕЧНИЙ МАРШРУТ: небезпечні зони оминуто з запасом. Макс. нахил ${peakSlope.toFixed(1)}°, подовження до ортодромії +${detourPct.toFixed(0)}%.`;
         } else {
-            diagnosis = `УВАГА: Повний обхід заблоковано рельєфом. Знайдено траверс із найменшим ризиком (${hazardHitCount} перетинів).`;
-            safetyScore = Math.max(25, Math.round(85 - (hazardHitCount / path.length) * 110));
+            diagnosis = `УВАГА: повний обхід неможливий — траверс небезпечних зон ≈ ${Math.round(hazardKm)} км. Обрано шлях з найменшим ризиком.`;
         }
     } else {
-        diagnosis = `ШВИДКИЙ МАРШРУТ: Найкоротша дистанція напряму. Макс. нахил ${peakSlope.toFixed(1)}°.`;
-        safetyScore = Math.max(15, Math.round(75 - (hazardHitCount / path.length) * 85 - (peakSlope > 14 ? 15 : 0)));
+        diagnosis = `ШВИДКИЙ МАРШРУТ: мінімальні витрати без обходу зон. Макс. нахил ${peakSlope.toFixed(1)}°, у небезпечних зонах ≈ ${Math.round(hazardKm)} км.`;
     }
 
     return {
         path,
-        totalDist: totalDistKm,
+        totalDist: L,
         maxSlope: peakSlope,
         totalAsc: asc,
         totalDesc: desc,
         safety: safetyScore,
-        scanDiagnosis: diagnosis
+        scanDiagnosis: diagnosis,
+        hazardHits
     };
 }
 
