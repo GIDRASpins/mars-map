@@ -28,6 +28,21 @@
         <span class="sync-icon">☁</span> <span id="syncToastMsg">Маршрут синхронізовано з PostgreSQL</span>
     </div>
 
+    <!-- Спливаючий радар-банер небезпеки пилової бурі -->
+    <div id="stormAlertBanner" class="storm-alert-banner" style="display: none;">
+        <div class="sab-left">
+            <span class="sab-icon pulse-storm">🌪️</span>
+            <div class="sab-info">
+                <div class="sab-title">КРИТИЧНО: ПИЛОВА БУРЯ НА КУРСІ РОВЕРА!</div>
+                <div class="sab-desc" id="stormAlertDesc">Шторм перетинає розрахований шлях. Ризик втрати енергії та пошкодження.</div>
+            </div>
+        </div>
+        <div class="sab-actions">
+            <button id="btnFocusStorm" class="sab-btn sab-btn-sub" type="button">ПОКАЗАТИ БУРЮ</button>
+            <button id="btnDismissStormAlert" class="sab-btn-close" title="Приховати сповіщення">×</button>
+        </div>
+    </div>
+
     <!-- Контейнери карт -->
     <div id="map"></div> <!-- 2D Leaflet -->
     <div id="globe-container" style="display: none;"></div> <!-- 3D Globe -->
@@ -54,10 +69,15 @@
             <button id="btnVisSafe" class="btn-toggle active-safe" title="Увімкнути/вимкнути відображення безпечних зон">
                 <span class="btn-dot dot-green"></span>БЕЗПЕЧНІ: ПОКАЗАНО
             </button>
+            <button id="btnToggleStorms" class="btn-toggle active active-storm" title="Увімкнути/вимкнути відображення пилових бур">
+                <span class="btn-dot dot-storm pulse-storm"></span>БУРІ: ПОКАЗАНО
+            </button>
+            <button id="btnFocusStormHud" class="btn-toggle btn-weather" title="Показати активну пилову бурю на мапі">
+                <span class="weather-mini-icon">🌪️</span> ЗНАЙТИ БУРЮ
+            </button>
             <button id="btnToggleHazards" class="btn-toggle active" title="Враховувати зони в алгоритмі прокладання A*">
                 A* ОБМЕЖЕННЯ: УВІМК
             </button>
-            <button id="btnToggleView" class="btn-toggle">3D РЕЖИМ</button>
         </div>
 
         <div class="nothing-status-pill">
@@ -233,13 +253,63 @@
         </div>
     </aside>
 
-    <!-- Нижній рядок телеметрії (HUD BOTTOM) -->
-    <footer class="hud-bottom">
-        <div>LAT <span id="teleLat">0.0000°</span></div>
-        <div>LON <span id="teleLon">0.0000°</span></div>
-        <div>ALT <span id="teleAlt">0 M</span></div>
-        <div class="nothing-mode-tag"><span class="nothing-red-dot"></span> ROVER // ACTIVE</div>
-    </footer>
+    <!-- Перемикач 2D / 3D -->
+    <button id="btnToggleView" class="view-switch-card" type="button" title="Перемкнути на 3D карту" aria-label="Перемкнути на 3D карту">
+        <!-- Зображення 3D-моделі (показується, коли активна 2D-карта) -->
+        <div class="view-preview preview-3d">
+            <svg viewBox="0 0 84 84" width="100%" height="100%" aria-hidden="true">
+                <defs>
+                    <radialGradient id="mars3dAtmo" cx="50%" cy="50%" r="50%">
+                        <stop offset="65%" stop-color="#FF5722" stop-opacity="0.45"/>
+                        <stop offset="100%" stop-color="#FF5722" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="mars3dFallback" cx="35%" cy="30%" r="70%">
+                        <stop offset="0%" stop-color="#E27B58"/>
+                        <stop offset="55%" stop-color="#B84426"/>
+                        <stop offset="100%" stop-color="#4A170B"/>
+                    </radialGradient>
+                    <radialGradient id="mars3dShade" cx="32%" cy="28%" r="72%">
+                        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+                        <stop offset="55%" stop-color="#000000" stop-opacity="0.05"/>
+                        <stop offset="100%" stop-color="#02040A" stop-opacity="0.72"/>
+                    </radialGradient>
+                    <clipPath id="globeClip">
+                        <circle cx="42" cy="39" r="24"/>
+                    </clipPath>
+                </defs>
+                <rect width="84" height="84" fill="#070A14"/>
+                <circle cx="14" cy="15" r="1" fill="#FFFFFF" opacity="0.75"/>
+                <circle cx="69" cy="14" r="1.2" fill="#FFFFFF" opacity="0.8"/>
+                <circle cx="72" cy="56" r="0.9" fill="#FFFFFF" opacity="0.6"/>
+                <circle cx="16" cy="60" r="1" fill="#FFFFFF" opacity="0.65"/>
+                <circle cx="42" cy="39" r="32" fill="url(#mars3dAtmo)"/>
+                <g clip-path="url(#globeClip)">
+                    <circle cx="42" cy="39" r="24" fill="url(#mars3dFallback)"/>
+                    <image href="https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg" x="10" y="15" width="64" height="48" preserveAspectRatio="xMidYMid slice"/>
+                    <ellipse cx="42" cy="39" rx="11" ry="24" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="0.8"/>
+                    <ellipse cx="42" cy="39" rx="24" ry="8" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="0.8"/>
+                    <circle cx="42" cy="39" r="24" fill="url(#mars3dShade)"/>
+                </g>
+                <circle cx="42" cy="39" r="24" fill="none" stroke="#FF7043" stroke-opacity="0.75" stroke-width="1.1"/>
+            </svg>
+            <span class="view-badge">3D МОДЕЛЬ</span>
+        </div>
+
+        <!-- Зображення 2D-карти (показується, коли активний 3D-глобус) -->
+        <div class="view-preview preview-2d">
+            <svg viewBox="0 0 84 84" width="100%" height="100%" aria-hidden="true">
+                <rect width="84" height="84" fill="#B85335"/>
+                <image href="https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg" x="0" y="0" width="84" height="84" preserveAspectRatio="xMidYMid slice"/>
+                <path d="M0 28 H84 M0 56 H84 M28 0 V84 M56 0 V84" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="0.8"/>
+                <polygon points="12,15 33,12 37,25 16,29" fill="#00FFAA" fill-opacity="0.35" stroke="#00FFAA" stroke-width="1.2" stroke-dasharray="2,1.5"/>
+                <polygon points="46,40 71,36 74,52 49,55" fill="#FF2E38" fill-opacity="0.4" stroke="#FF2E38" stroke-width="1.2" stroke-dasharray="2,1.5"/>
+                <path d="M20,46 Q37,26 62,22" fill="none" stroke="#00FFAA" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="20" cy="46" r="2.8" fill="#00F0FF" stroke="#000" stroke-width="0.8"/>
+                <circle cx="62" cy="22" r="2.8" fill="#FF2E38" stroke="#000" stroke-width="0.8"/>
+            </svg>
+            <span class="view-badge">2D КАРТА</span>
+        </div>
+    </button>
 
     <!-- Інформаційна картка обраної зони -->
     <div id="zoneInfoCard" class="zone-info-card" style="display: none;">
