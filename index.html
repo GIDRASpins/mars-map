@@ -18,34 +18,55 @@
 </head>
 <body>
 
-    <!-- Спливаюче попередження -->
-    <div id="warningToast" class="warning-toast">
-        <span class="icon">!</span> <span id="warningMsg">КРИТИЧНО: Маршрут близько до небезпеки!</span>
-    </div>
-
-    <!-- Спливаюче сповіщення синхронізації -->
-    <div id="syncToast" class="sync-toast">
-        <span class="sync-icon">☁</span> <span id="syncToastMsg">Маршрут синхронізовано з PostgreSQL</span>
-    </div>
-
-    <!-- Спливаючий радар-банер небезпеки пилової бурі -->
-    <div id="stormAlertBanner" class="storm-alert-banner" style="display: none;">
-        <div class="sab-left">
-            <span class="sab-icon pulse-storm">🌪️</span>
-            <div class="sab-info">
-                <div class="sab-title">КРИТИЧНО: ПИЛОВА БУРЯ НА КУРСІ РОВЕРА!</div>
-                <div class="sab-desc" id="stormAlertDesc">Шторм перетинає розрахований шлях. Ризик втрати енергії та пошкодження.</div>
-            </div>
-        </div>
-        <div class="sab-actions">
-            <button id="btnFocusStorm" class="sab-btn sab-btn-sub" type="button">ПОКАЗАТИ БУРЮ</button>
-            <button id="btnDismissStormAlert" class="sab-btn-close" title="Приховати сповіщення">×</button>
-        </div>
-    </div>
-
     <!-- Контейнери карт -->
     <div id="map"></div> <!-- 2D Leaflet -->
     <div id="globe-container" style="display: none;"></div> <!-- 3D Globe -->
+
+    <!-- Стек верхніх сповіщень та банерів (без накладання) -->
+    <div class="hud-banners-stack" id="hudBannersStack">
+        <!-- Waze Навігаційний банер (HUD) -->
+        <div id="wazeNavBanner" class="waze-nav-banner" style="display: none;">
+            <div class="wnb-left">
+                <div class="wnb-maneuver-icon" id="wnbIcon">↱</div>
+                <div class="wnb-info">
+                    <div class="wnb-instruction" id="wnbInstruction">Рухайтесь до Точки Вейпоінт 1</div>
+                    <div class="wnb-dist" id="wnbDist">0 км</div>
+                </div>
+            </div>
+            <div class="wnb-stats">
+                <div class="wnb-stat"><span class="lbl">ШВИДКІСТЬ:</span> <span class="val" id="wnbSpeed">30 км/год</span></div>
+                <div class="wnb-stat"><span class="lbl">ЗАЛИШИЛОСЯ:</span> <span class="val" id="wnbRemainingDist">0 км</span></div>
+                <div class="wnb-stat"><span class="lbl">ЧАС (ETA):</span> <span class="val" id="wnbEta">0 хв</span></div>
+            </div>
+            <button id="btnStopNavigation" class="wnb-close-btn" title="Зупинити навігацію">×</button>
+        </div>
+
+        <!-- Попередження про перетин маршруту з пиловою бурею -->
+        <div id="stormAlertBanner" class="storm-alert-banner" style="display: none;">
+            <div class="sab-left">
+                <span class="sab-icon">🌪️</span>
+                <div class="sab-info">
+                    <div class="sab-title">УВАГА: МАРШРУТ ПЕРЕТИНАЄ ПИЛОВУ БУРЮ!</div>
+                    <div class="sab-desc" id="stormAlertDesc">Активний циклон загрожує безпеці ровера.</div>
+                </div>
+            </div>
+            <div class="sab-actions">
+                <button id="btnRerouteAvoidStorm" class="sab-btn sab-btn-sub" type="button">ОБІЙТИ</button>
+                <button id="btnFocusStorm" class="sab-btn sab-btn-sub" type="button">⌖ ДО БУРІ</button>
+                <button id="btnDismissStormAlert" class="sab-btn-close" type="button" title="Приховати">×</button>
+            </div>
+        </div>
+
+        <!-- Спливаюче попередження -->
+        <div id="warningToast" class="warning-toast">
+            <span class="icon">!</span> <span id="warningMsg">КРИТИЧНО: Маршрут близько до небезпеки!</span>
+        </div>
+
+        <!-- Спливаюче сповіщення синхронізації -->
+        <div id="syncToast" class="sync-toast">
+            <span class="sync-icon">☁</span> <span id="syncToastMsg">Маршрут синхронізовано з PostgreSQL</span>
+        </div>
+    </div>
 
     <!-- Верхній рядок керування (HUD TOP) -->
     <header class="hud-top">
@@ -61,27 +82,22 @@
                 <span id="accountBtnText">ВХІД / АКАУНТ</span>
             </button>
 
+            <!-- Кнопка відкриття космічного радіочату -->
+            <button id="btnToggleChat" class="btn-toggle btn-chat" type="button" title="Космічний радіочат космонавтів (як у Waze)">
+                <span class="chat-icon">📻</span> РАДІОЧАТ <span id="chatUnreadBadge" class="chat-badge" style="display:none;">0</span>
+            </button>
+
+            <!-- Кнопка створення позначки на мапі -->
+            <button id="btnOpenReportModal" class="btn-toggle btn-waze-report" type="button" title="Поставити позначку на мапі (як у Waze)">
+                <span class="waze-pin-icon">📍</span> ПОЗНАЧИТИ
+            </button>
+
             <button id="btnSosTop" class="btn-sos-hud" type="button" title="Екстрене перенаправлення з точки A до найближчої безпечної зони">
                 <span class="sos-pulse-dot"></span> SOS
             </button>
         </div>
 
         <div class="view-toggles">
-            <button id="btnVisHazards" class="btn-toggle active-danger" title="Увімкнути/вимкнути відображення небезпечних зон">
-                <span class="btn-dot dot-red"></span>НЕБЕЗПЕКИ: ПОКАЗАНО
-            </button>
-            <button id="btnVisSafe" class="btn-toggle active-safe" title="Увімкнути/вимкнути відображення безпечних зон">
-                <span class="btn-dot dot-green"></span>БЕЗПЕЧНІ: ПОКАЗАНО
-            </button>
-            <button id="btnVisBases" class="btn-toggle active active-base" title="Увімкнути/вимкнути відображення марсіанських баз">
-                <span class="btn-dot dot-base"></span>БАЗИ: ПОКАЗАНО
-            </button>
-            <button id="btnToggleStorms" class="btn-toggle active active-storm" title="Увімкнути/вимкнути відображення пилових бур">
-                <span class="btn-dot dot-storm pulse-storm"></span>БУРІ: ПОКАЗАНО
-            </button>
-            <button id="btnFocusStormHud" class="btn-toggle btn-weather" title="Показати активну пилову бурю на мапі">
-                <span class="weather-mini-icon">🌪️</span> ЗНАЙТИ БУРЮ
-            </button>
             <button id="btnToggleHazards" class="btn-toggle active" title="Враховувати зони в алгоритмі прокладання A*">
                 A* ОБМЕЖЕННЯ: УВІМК
             </button>
@@ -109,16 +125,30 @@
             Алгоритм прокладає шлях, оминаючи <span style="color:#FF2E38; font-weight:600;">небезпечні зони</span> та надаючи перевагу <span style="color:#00FFAA; font-weight:600;">безпечним рівнинам</span>. Клікніть на мапі для вибору точок A та B.
         </p>
 
-        <!-- Картки вибору точок A та B -->
+        <!-- Картки вибору точок A, проміжних вейпоінтів та B -->
         <div class="point-cards">
             <div class="p-card card-a">
                 <div class="p-label"><span class="pin pin-a">A</span> СТАРТ</div>
                 <div class="p-value" id="dispPointA">Клікніть на мапі...</div>
             </div>
+
+            <!-- Список проміжних вейпоінтів (Waze Waypoints) -->
+            <div id="waypointsList" class="waypoints-list"></div>
+
             <div class="p-card card-b">
                 <div class="p-label"><span class="pin pin-b">B</span> ФІНІШ</div>
                 <div class="p-value" id="dispPointB">Клікніть на мапі...</div>
             </div>
+        </div>
+
+        <!-- Керування вейпоінтами та реверсом -->
+        <div class="waypoint-actions-bar">
+            <button id="btnAddWaypoint" class="btn-sub btn-wp-add" type="button" title="Додати вейпоінт (проміжну точку зупинки)">
+                <span class="wp-plus-icon">+</span> ДОДАТИ ВЕЙПОІНТ
+            </button>
+            <button id="btnReverseRoute" class="btn-sub btn-wp-reverse" type="button" title="Поміняти місцями старт та фініш">
+                ⇄ РЕВЕРС
+            </button>
         </div>
 
         <!-- Кнопки розрахунку та скидання -->
@@ -134,6 +164,11 @@
 
         <!-- Звіт розрахованого маршруту (ТІЛЬКИ В БОКОВОМУ МЕНЮ) -->
         <div id="routeReport" class="route-report" style="display: none;">
+            <!-- Кнопка режиму навігації Waze -->
+            <button id="btnToggleNavigation" class="btn-waze-nav" type="button" title="Увімкнути режим реального навігатора Waze">
+                <span class="waze-car-icon">🚗</span> ПОЧАТИ НАВІГАЦІЮ (WAZE)
+            </button>
+
             <div id="scannerDiagnosis" class="scanner-status-box">Сканування...</div>
             
             <div class="route-tabs">
@@ -216,6 +251,15 @@
                         <span class="supply-val" id="supplyFuelVal">0 л</span>
                         <span class="supply-sub" id="supplyFuelSub">0.35 л/км</span>
                     </div>
+                </div>
+
+                <!-- Блок для їжі (субліпайки) -->
+                <div class="supply-food-block">
+                    <div class="sf-head">
+                        <span class="sf-title">🍱 ЇЖА (СУБЛІПАЙКИ)</span>
+                        <span class="sf-val" id="supplyFoodVal">0.00 кг</span>
+                    </div>
+                    <div class="sf-sub" id="supplyFoodSub">Калорійність: 0 ккал · Субліпайки: 0 шт.</div>
                 </div>
 
                 <!-- Окремий блок для води -->
@@ -506,12 +550,132 @@
         </div>
     </div>
 
+    <!-- Перемикач мови UA / EN у правому нижньому кутку екрана -->
+    <button id="btnLang" class="btn-toggle btn-lang btn-lang-corner" type="button" data-no-i18n title="Змінити мову на англійську" aria-label="Language">
+        <span class="lang-globe">🌐</span>
+        <span class="lang-opt active" data-lang="uk">UA</span>
+        <span class="lang-sep">/</span>
+        <span class="lang-opt" data-lang="en">EN</span>
+    </button>
+
+    <!-- Модальне вікно створення позначки Waze -->
+    <div id="reportModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card modal-report-card">
+            <button id="btnCloseReportModal" class="btn-close-card" title="Закрити">×</button>
+            <div class="modal-head">
+                <div class="modal-pill pill-cyan">MARS // WAZE NAVIGATOR ALERT</div>
+                <h3 class="modal-title">ПОЗНАЧИТИ НА КАРТІ</h3>
+                <p class="modal-desc">
+                    Позначте подію або ресурс на карті для інших космонавтів. Всі позначки транслюються у радіочат екіпажу.
+                </p>
+            </div>
+
+            <form id="reportForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label class="form-label">Тип події:</label>
+                    <div class="report-type-selector">
+                        <label class="rtype-chip active" data-type="hazard"><input type="radio" name="reportType" value="hazard" checked>⚠️ Небезпека</label>
+                        <label class="rtype-chip" data-type="breakdown"><input type="radio" name="reportType" value="breakdown">🚜 Зламаний ровер</label>
+                        <label class="rtype-chip" data-type="storm"><input type="radio" name="reportType" value="storm">🌪️ Буря</label>
+                        <label class="rtype-chip" data-type="ice"><input type="radio" name="reportType" value="ice">🧊 Лід / Вода</label>
+                        <label class="rtype-chip" data-type="cache"><input type="radio" name="reportType" value="cache">📦 Схованка O₂</label>
+                        <label class="rtype-chip" data-type="blocked"><input type="radio" name="reportType" value="blocked">🛑 Заблоковано</label>
+                        <label class="rtype-chip" data-type="landmark"><input type="radio" name="reportType" value="landmark">💎 Артефакт</label>
+                        <label class="rtype-chip" data-type="sos"><input type="radio" name="reportType" value="sos">🆘 SOS Маяк</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="reportTitle">Короткий заголовок:</label>
+                    <input type="text" id="reportTitle" class="form-input" placeholder="Наприклад: Тріщина 4м на схилі" required maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="reportDesc">Опис або порада колегам:</label>
+                    <textarea id="reportDesc" class="form-input report-textarea" placeholder="Деталі події, як об'їхати або що потрібно..." rows="3" maxlength="300"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Локація позначки:</label>
+                    <div class="report-loc-options">
+                        <button type="button" id="btnUseRoverLoc" class="btn-sub btn-loc-opt active">📍 Поточна Точка A (Ровер)</button>
+                        <button type="button" id="btnPickLocOnMap" class="btn-sub btn-loc-opt">🎯 Обрати кліком на мапі</button>
+                    </div>
+                    <div class="report-coords-disp" id="reportCoordsDisp">Координати: 0.00°, 0.00°</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="reportAuthor">Позивний космонавта:</label>
+                    <input type="text" id="reportAuthor" class="form-input" placeholder="Curiosity-04" value="Астронавт-1" maxlength="40">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="btnSubmitReport" class="btn-main">📡 ОПУБЛІКУВАТИ ПОЗНАЧКУ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Панель космічного радіочату космонавтів -->
+    <aside id="astronautChatPanel" class="astronaut-chat-panel collapsed">
+        <div class="chat-header">
+            <div class="chat-title-group">
+                <span class="chat-radio-pulse"></span>
+                <div>
+                    <h4 class="chat-title">РАДІОЧАТ КОСМОНАВТІВ</h4>
+                    <span class="chat-freq">FREQ: 142.800 MHz · MARS COMM-LINK</span>
+                </div>
+            </div>
+            <button id="btnCloseChat" class="btn-close-chat" title="Згорнути радіочат">✕</button>
+        </div>
+
+        <!-- Список активних роверів на зв'язку -->
+        <div class="chat-roster-bar">
+            <span class="roster-title">В ЕФІРІ:</span>
+            <div class="roster-chips" id="rosterChips">
+                <span class="roster-badge online"><span class="dot-online"></span>Ares-1</span>
+                <span class="roster-badge online"><span class="dot-online"></span>Curiosity-04</span>
+                <span class="roster-badge online"><span class="dot-online"></span>Percy-Alpha</span>
+                <span class="roster-badge online"><span class="dot-online"></span>Zhurong-Unit</span>
+                <span class="roster-badge online"><span class="dot-online"></span>Spirit-Echo</span>
+            </div>
+        </div>
+
+        <!-- Стрічка повідомлень -->
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <!-- Швидкі радіо-фрази -->
+        <div class="chat-quick-phrases">
+            <button class="quick-phrase-btn" data-text="🆘 SOS! Потрібна термінова допомога!">🆘 SOS!</button>
+            <button class="quick-phrase-btn" data-text="🌪️ Увага! Помічено пилову бурю по курсу!">🌪️ Буря</button>
+            <button class="quick-phrase-btn" data-text="🟢 Маршрут перевірено, проїзд вільний.">🟢 Чисто</button>
+            <button class="quick-phrase-btn" data-text="🧊 Виявлено поклади водяного льоду.">🧊 Лід</button>
+            <button class="quick-phrase-btn" data-text="📦 Схованка з киснем оновлена.">📦 Схованка</button>
+        </div>
+
+        <!-- Форма надсилання повідомлення -->
+        <form id="chatForm" class="chat-input-form" onsubmit="return false;">
+            <div class="chat-input-row">
+                <input type="text" id="chatInputText" class="chat-input" placeholder="Повідомлення на 142.8 MHz..." maxlength="300" autocomplete="off">
+                <button type="button" id="btnChatAttachCoords" class="btn-chat-attach" title="Прикріпити поточні координати">📍</button>
+                <button type="submit" id="btnChatSend" class="btn-chat-send" title="Надіслати в ефір">➤</button>
+            </div>
+            <div id="chatAttachedCoordsBar" class="chat-attached-coords" style="display:none;">
+                <span id="chatAttachedCoordsText">📍 0.00°, 0.00°</span>
+                <button type="button" id="btnRemoveAttachedCoords" class="btn-remove-attach">×</button>
+            </div>
+        </form>
+    </aside>
+
     <!-- Бібліотека Leaflet для 2D карти -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Бібліотека Globe.gl для 3D глобуса -->
     <script src="https://unpkg.com/globe.gl@2.32.2/dist/globe.gl.min.js"></script>
     
+    <!-- Переклад інтерфейсу UA / EN (має завантажуватись перед script.js) -->
+    <script src="i18n.js"></script>
+
     <!-- Головна логіка застосунку -->
     <script src="script.js"></script>
 </body>

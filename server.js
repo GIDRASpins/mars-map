@@ -21,7 +21,7 @@ app.use(cors());
 app.use(express.json());
 
 // Віддаємо файли фронтенду та зображення (server.js, package.json захищені)
-const PUBLIC_FILES = ['index.html', 'script.js', 'style.css'];
+const PUBLIC_FILES = ['index.html', 'script.js', 'style.css', 'i18n.js'];
 PUBLIC_FILES.forEach((file) => {
   app.get('/' + file, (req, res) => res.sendFile(path.join(__dirname, file)));
 });
@@ -87,6 +87,55 @@ app.get('/storm-img/:id.png', (req, res) => {
   res.type('png').send(stormPng(id));
 });
 
+// ============================================================================
+// ПРОКСІ ТАЙЛІВ NASA TREK (для аналізу видимих кратерів та крутизни рельєфу)
+// ============================================================================
+const ALLOWED_TREK_LAYERS = new Set([
+  'Mars_Viking_MDIM21_ClrMosaic_global_232m',
+  'Mars_MGS_MOLA_ClrShade_merge_global_463m',
+  'Mars_MOLA_blend200ppx_HRSC_ClrShade_clon0dd_200mpp_lzw'
+]);
+const marsTileCache = new Map();
+
+app.get('/api/mars-tile/:layer/:z/:y/:x', async (req, res) => {
+  const { layer, z, y, x } = req.params;
+  const xClean = String(x).replace(/\.(jpg|png)$/i, '');
+  const zi = parseInt(z, 10), yi = parseInt(y, 10), xi = parseInt(xClean, 10);
+
+  if (!ALLOWED_TREK_LAYERS.has(layer) || !Number.isInteger(zi) || zi < 0 || zi > 8 || yi < 0 || xi < 0) {
+    return res.status(400).end();
+  }
+  const numRows = Math.pow(2, zi), numCols = 2 * numRows;
+  if (yi >= numRows || xi >= numCols) return res.status(404).end();
+
+  const key = `${layer}/${zi}/${yi}/${xi}`;
+  if (marsTileCache.has(key)) {
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(marsTileCache.get(key));
+  }
+
+  try {
+    const url = `https://trek.nasa.gov/tiles/Mars/EQ/${layer}/1.0.0/default/default028mm/${zi}/${yi}/${xi}.jpg`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const resp = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!resp.ok) return res.status(resp.status).end();
+
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (marsTileCache.size >= 300) {
+      marsTileCache.delete(marsTileCache.keys().next().value);
+    }
+    marsTileCache.set(key, buf);
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch (e) {
+    res.status(502).end();
+  }
+});
+
 // Дозволяємо роздачу зображень для бурі та погоди
 app.get(/\.(png|jpg|jpeg|webp|svg)$/i, (req, res) => {
   const safePath = path.join(__dirname, path.basename(req.path));
@@ -148,8 +197,130 @@ function cleanPoint(p) {
   const lat = Number(p.lat);
   const lon = Number(p.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return { lat, lon };
+  return { lat, lon, name: p.name || null };
 }
+
+function cleanWaypoints(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(cleanPoint).filter(Boolean);
+}
+
+// ============================================================================
+// IN-MEMORY FALLBACK ДЛЯ ПОЗНАЧОК WAZE ТА РАДІОЧАТУ
+// (Працює завжди, навіть коли PostgreSQL вимкнено або локально)
+// ============================================================================
+let inMemoryReports = [
+  {
+    id: 1,
+    type: 'breakdown',
+    title: 'Зламане шасі ровера Curiosity-04',
+    description: 'Застряг у піщаній пастці на схилі кратера. Потрібна допомога або акумулятор.',
+    lat: -14.2,
+    lon: -65.5,
+    author: 'Curiosity-04',
+    confirms: 3,
+    created_at: new Date(Date.now() - 25 * 60000).toISOString()
+  },
+  {
+    id: 2,
+    type: 'ice',
+    title: 'Поклади водяного льоду на глибині 25 см',
+    description: 'Виявлено спектрометром. Чистота льоду понад 85%, придатний для екстракції.',
+    lat: 44.5,
+    lon: -160.2,
+    author: 'Arcadia-Surveyor',
+    confirms: 5,
+    created_at: new Date(Date.now() - 48 * 60000).toISOString()
+  },
+  {
+    id: 3,
+    type: 'hazard',
+    title: 'Глибока тріщина та осип каменю',
+    description: 'Урвище понад 15 метрів, A* маршрут краще прокладати на 20 км північніше.',
+    lat: -8.5,
+    lon: -88.0,
+    author: 'Ares-Lead',
+    confirms: 4,
+    created_at: new Date(Date.now() - 85 * 60000).toISOString()
+  },
+  {
+    id: 4,
+    type: 'cache',
+    title: 'Аварійний схрон: 2 балони O2 та батарея',
+    description: 'Сховано біля базальтової скелі в маркованому контейнері #7.',
+    lat: 18.2,
+    lon: 76.5,
+    author: 'Perseverance-Base',
+    confirms: 6,
+    created_at: new Date(Date.now() - 110 * 60000).toISOString()
+  },
+  {
+    id: 5,
+    type: 'storm',
+    title: 'Локальний пиловий смерч (висота ~1.2 км)',
+    description: 'Рухається зі швидкістю 35 км/год на схід, знижує видимість до 20 метрів.',
+    lat: -26.0,
+    lon: 68.0,
+    author: 'Hellas-Observer',
+    confirms: 2,
+    created_at: new Date(Date.now() - 15 * 60000).toISOString()
+  }
+];
+
+let inMemoryChat = [
+  {
+    id: 1,
+    author: 'База «Єзеро»',
+    callsign: 'HQ-Control',
+    text: 'Всім роверам сектора 4: сонячна буря сповільнює радіолінк. Працюємо на резервній частоті 142.8 MHz.',
+    lat: 18.5,
+    lon: 77.1,
+    is_alert: false,
+    created_at: new Date(Date.now() - 90 * 60000).toISOString()
+  },
+  {
+    id: 2,
+    author: 'Ares-Lead',
+    callsign: 'Ares-1',
+    text: 'Прибув у Долину Марінера. Попереду небезпечний спуск, поставив позначку урвища на мапі.',
+    lat: -8.5,
+    lon: -88.0,
+    is_alert: true,
+    created_at: new Date(Date.now() - 60 * 60000).toISOString()
+  },
+  {
+    id: 3,
+    author: 'Curiosity-04',
+    callsign: 'Curiosity',
+    text: 'SOS! Застряг у дюні. Колеса 2 і 4 пробуксовують. Надіслав позначку на карту, хто поруч?',
+    lat: -14.2,
+    lon: -65.5,
+    is_alert: true,
+    created_at: new Date(Date.now() - 25 * 60000).toISOString()
+  },
+  {
+    id: 4,
+    author: 'Arcadia-Surveyor',
+    callsign: 'Ice-Hunter',
+    text: 'Підтверджую поклади льоду біля Аркадії! Зразки зібрано. Запасів вистачить усій колонії.',
+    lat: 44.5,
+    lon: -160.2,
+    is_alert: false,
+    created_at: new Date(Date.now() - 18 * 60000).toISOString()
+  },
+  {
+    id: 5,
+    author: 'Perseverance-Base',
+    callsign: 'Percy-Ops',
+    text: 'Curiosity, тримайся, дрон Ingenuity-Next вже передає оновлену телеметрію маршруту.',
+    lat: 18.5,
+    lon: 77.1,
+    is_alert: false,
+    created_at: new Date(Date.now() - 8 * 60000).toISOString()
+  }
+];
+let nextReportId = 6;
+let nextMessageId = 6;
 
 // ============================================================================
 // АВТОМАТИЧНЕ СТВОРЕННЯ ТАБЛИЦЬ В POSTGRESQL ПРИ СТАРТІ
@@ -179,6 +350,40 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS mars_sessions (
         token VARCHAR(64) PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES mars_users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Додаємо колонку waypoints до mars_users (якщо ще немає)
+    await client.query(`
+      ALTER TABLE mars_users ADD COLUMN IF NOT EXISTS waypoints JSONB DEFAULT NULL;
+    `);
+
+    // Таблиця позначок космонавтів (Waze alerts)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mars_reports (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        lat DOUBLE PRECISION NOT NULL,
+        lon DOUBLE PRECISION NOT NULL,
+        author VARCHAR(100) NOT NULL,
+        confirms INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Таблиця повідомлень космічного радіочату
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mars_messages (
+        id SERIAL PRIMARY KEY,
+        author VARCHAR(100) NOT NULL,
+        callsign VARCHAR(100),
+        text TEXT NOT NULL,
+        lat DOUBLE PRECISION DEFAULT NULL,
+        lon DOUBLE PRECISION DEFAULT NULL,
+        is_alert BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -282,21 +487,22 @@ app.post('/api/logout', requireAuth, async (req, res) => {
   }
 });
 
-// Збереження точок маршруту (тільки для власника сесії)
+// Збереження точок маршруту (включаючи вейпоінти) (тільки для власника сесії)
 app.post('/api/save-route', requireAuth, async (req, res) => {
-  const { pointA, pointB } = req.body || {};
+  const { pointA, pointB, waypoints } = req.body || {};
   const a = cleanPoint(pointA);
   const b = cleanPoint(pointB);
+  const wp = cleanWaypoints(waypoints);
 
   try {
     await pool.query(
       `UPDATE mars_users
-       SET point_a = $1, point_b = $2, updated_at = NOW()
-       WHERE id = $3`,
-      [a ? JSON.stringify(a) : null, b ? JSON.stringify(b) : null, req.user.id]
+       SET point_a = $1, point_b = $2, waypoints = $3, updated_at = NOW()
+       WHERE id = $4`,
+      [a ? JSON.stringify(a) : null, b ? JSON.stringify(b) : null, wp.length ? JSON.stringify(wp) : null, req.user.id]
     );
 
-    res.json({ success: true, message: 'Маршрут збережено в PostgreSQL' });
+    res.json({ success: true, message: 'Маршрут та вейпоінти збережено в PostgreSQL' });
   } catch (err) {
     console.error('Помилка /api/save-route:', err);
     res.status(500).json({ error: 'Не вдалося зберегти маршрут' });
@@ -311,7 +517,7 @@ app.get('/api/load-route/:username', requireAuth, async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT point_a, point_b FROM mars_users WHERE id = $1',
+      'SELECT point_a, point_b, waypoints FROM mars_users WHERE id = $1',
       [req.user.id]
     );
 
@@ -322,12 +528,159 @@ app.get('/api/load-route/:username', requireAuth, async (req, res) => {
     res.json({
       success: true,
       pointA: result.rows[0].point_a,
-      pointB: result.rows[0].point_b
+      pointB: result.rows[0].point_b,
+      waypoints: result.rows[0].waypoints || []
     });
   } catch (err) {
     console.error('Помилка /api/load-route:', err);
     res.status(500).json({ error: 'Помилка зчитування з бази даних' });
   }
+});
+
+// ============================================================================
+// ПОЗНАЧКИ КОСМОНАВТІВ (WAZE ALERTS & HAZARDS)
+// ============================================================================
+app.get('/api/reports', async (req, res) => {
+  try {
+    if (connectionString) {
+      const result = await pool.query('SELECT * FROM mars_reports ORDER BY created_at DESC LIMIT 150');
+      if (result.rows && result.rows.length > 0) {
+        return res.json({ success: true, reports: result.rows });
+      }
+    }
+  } catch (e) {
+    console.warn('Postgres /api/reports fallback to in-memory:', e.message);
+  }
+  res.json({ success: true, reports: inMemoryReports });
+});
+
+app.post('/api/reports', async (req, res) => {
+  const { type, title, description, lat, lon, author } = req.body || {};
+  const cleanLat = Number(lat);
+  const cleanLon = Number(lon);
+  if (!type || !title || !Number.isFinite(cleanLat) || !Number.isFinite(cleanLon)) {
+    return res.status(400).json({ error: 'Некоректні параметри позначки' });
+  }
+
+  const report = {
+    id: nextReportId++,
+    type: String(type).slice(0, 50),
+    title: String(title).slice(0, 200),
+    description: description ? String(description).slice(0, 500) : '',
+    lat: cleanLat,
+    lon: cleanLon,
+    author: author ? String(author).slice(0, 100) : 'Астронавт',
+    confirms: 1,
+    created_at: new Date().toISOString()
+  };
+
+  // Автоматичне сповіщення в космічний радіочат про нову позначку
+  const chatMsg = {
+    id: nextMessageId++,
+    author: report.author,
+    callsign: report.author,
+    text: `🚨 [WAZE ПОЗНАЧКА: ${report.title.toUpperCase()}] ${report.description || 'Подія на мапі'}`,
+    lat: cleanLat,
+    lon: cleanLon,
+    is_alert: true,
+    created_at: new Date().toISOString()
+  };
+  inMemoryChat.push(chatMsg);
+  inMemoryReports.unshift(report);
+
+  try {
+    if (connectionString) {
+      const dbRes = await pool.query(
+        `INSERT INTO mars_reports (type, title, description, lat, lon, author, confirms)
+         VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING *`,
+        [report.type, report.title, report.description, report.lat, report.lon, report.author]
+      );
+      if (dbRes.rows && dbRes.rows[0]) {
+        report.id = dbRes.rows[0].id;
+      }
+      await pool.query(
+        `INSERT INTO mars_messages (author, callsign, text, lat, lon, is_alert)
+         VALUES ($1, $2, $3, $4, $5, true)`,
+        [chatMsg.author, chatMsg.callsign, chatMsg.text, chatMsg.lat, chatMsg.lon]
+      ).catch(() => {});
+    }
+  } catch (e) {
+    console.warn('Postgres insert report fallback to memory:', e.message);
+  }
+
+  res.json({ success: true, report });
+});
+
+app.post('/api/reports/:id/confirm', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const rep = inMemoryReports.find(r => r.id === id);
+  if (rep) rep.confirms = (rep.confirms || 1) + 1;
+
+  try {
+    if (connectionString) {
+      await pool.query('UPDATE mars_reports SET confirms = confirms + 1 WHERE id = $1', [id]);
+    }
+  } catch (e) {
+    console.warn('Confirm postgres error:', e.message);
+  }
+
+  res.json({ success: true, confirms: rep ? rep.confirms : 1 });
+});
+
+// ============================================================================
+// КОСМІЧНИЙ РАДІОЧАТ КОСМОНАВТІВ (MARS COMM-LINK)
+// ============================================================================
+app.get('/api/chat', async (req, res) => {
+  try {
+    if (connectionString) {
+      const result = await pool.query('SELECT * FROM mars_messages ORDER BY created_at ASC LIMIT 100');
+      if (result.rows && result.rows.length > 0) {
+        return res.json({ success: true, messages: result.rows });
+      }
+    }
+  } catch (e) {
+    console.warn('Postgres /api/chat fallback to memory:', e.message);
+  }
+  res.json({ success: true, messages: inMemoryChat });
+});
+
+app.post('/api/chat', async (req, res) => {
+  const { author, callsign, text, lat, lon } = req.body || {};
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'Повідомлення не може бути порожнім' });
+  }
+
+  const cleanLat = lat != null && Number.isFinite(Number(lat)) ? Number(lat) : null;
+  const cleanLon = lon != null && Number.isFinite(Number(lon)) ? Number(lon) : null;
+
+  const msg = {
+    id: nextMessageId++,
+    author: author ? String(author).trim().slice(0, 100) : 'Астронавт',
+    callsign: callsign ? String(callsign).trim().slice(0, 100) : (author || 'Rover-1'),
+    text: String(text).trim().slice(0, 500),
+    lat: cleanLat,
+    lon: cleanLon,
+    is_alert: false,
+    created_at: new Date().toISOString()
+  };
+
+  inMemoryChat.push(msg);
+  if (inMemoryChat.length > 150) inMemoryChat.shift();
+
+  try {
+    if (connectionString) {
+      const dbRes = await pool.query(
+        `INSERT INTO mars_messages (author, callsign, text, lat, lon, is_alert)
+         VALUES ($1, $2, $3, $4, $5, false) RETURNING *`,
+        [msg.author, msg.callsign, msg.text, msg.lat, msg.lon]
+      );
+      if (dbRes.rows && dbRes.rows[0]) msg.id = dbRes.rows[0].id;
+    }
+  } catch (e) {
+    console.warn('Postgres insert chat fallback to memory:', e.message);
+  }
+
+  res.json({ success: true, message: msg });
 });
 
 // Діагностика: відкрийте /api/health у браузері, щоб побачити, до якої бази підключений сервер
@@ -378,31 +731,48 @@ const STORM_TRACKS = [
   { id: 'noachis', region: 'Noachis Terra', lat: -38, lon: 10, sp: [6, 20], w: [[200, 330, .45, 1.1]] },
   { id: 'daedalia', region: 'Daedalia Planum', lat: -22, lon: -130, sp: [6, 20], w: [[200, 320, .5, 1.1]] }
 ];
-// Щогодини з'являються нові бурі (кількість і місце старту змінюються), кожна живе 4 години й дрейфує
+
+const MIN_STORMS = 3;
 function climatologyStorms(msd, ls, nowMs) {
   const LIFE_H = 4, out = [], curHour = Math.floor(nowMs / 3600000);
   const active = STORM_TRACKS.map((t, i) => ({ t, i, w: t.w.find(x => ls >= x[0] && ls < x[1]) })).filter(x => x.w);
-  if (!active.length) return out;
   const season = ls >= 180 && ls <= 330;
-  for (let hh = curHour - LIFE_H + 1; hh <= curHour; hh++) {
-    const r = rng(hh * 7919 + 13);
-    let n = Math.floor(r() * (season ? 3 : 2)) + (hh === curHour ? 1 : 0);
-    n = Math.min(n, season ? 3 : 2);
-    for (let k = 0; k < n; k++) {
-      const { t, i, w } = active[Math.floor(r() * active.length)];
-      const age = (nowMs - hh * 3600000) / 3600000;
-      if (age >= LIFE_H) continue;
-      const lat0 = t.lat + (r() - .5) * 2 * t.sp[0], lon0 = t.lon + (r() - .5) * 2 * t.sp[1];
-      const heading = Math.round((90 + (r() - .5) * 70 + 360) % 360), speed = Math.round((30 + r() * 40) * (0.8 + 0.4 * w[3]));
-      const p = destPoint(lat0, lon0, heading, speed * age);
-      const life = 0.45 + 0.55 * Math.sin(Math.PI * age / LIFE_H);
-      const radius = Math.max(150, Math.round((220 + r() * 260) * w[3] * life));
-      out.push({
-        id: `${t.id}-${hh}-${k}`, name: `Пиловий шторм · ${t.region}`, regionName: t.region,
-        lat: Number(p.lat.toFixed(2)), lon: Number(p.lon.toFixed(2)), headingDeg: heading, speedKmH: speed,
-        radiusKm: radius, outerRadiusKm: Math.round(radius * 1.6), startedAt: new Date(hh * 3600000).toISOString(),
-        windSpeedMs: Number((14 + 10 * w[3] * r()).toFixed(1)), tau: Number((0.8 + 1.4 * w[3] * r()).toFixed(2))
-      });
+
+  const build = (t, w, hh, k, r, age, tag) => {
+    const lat0 = t.lat + (r() - .5) * 2 * t.sp[0], lon0 = t.lon + (r() - .5) * 2 * t.sp[1];
+    const heading = Math.round((90 + (r() - .5) * 70 + 360) % 360), speed = Math.round((30 + r() * 40) * (0.8 + 0.4 * w[3]));
+    const p = destPoint(lat0, lon0, heading, speed * age);
+    const life = 0.45 + 0.55 * Math.sin(Math.PI * Math.min(age, LIFE_H - 0.01) / LIFE_H);
+    const radius = Math.max(150, Math.round((220 + r() * 260) * w[3] * life));
+    return {
+      id: `${t.id}-${hh}-${tag}${k}`, name: `Пиловий шторм · ${t.region}`, regionName: t.region,
+      lat: Number(p.lat.toFixed(2)), lon: Number(p.lon.toFixed(2)), headingDeg: heading, speedKmH: speed,
+      radiusKm: radius, outerRadiusKm: Math.round(radius * 1.6), startedAt: new Date(nowMs - age * 3600000).toISOString(),
+      windSpeedMs: Number((14 + 10 * w[3] * r()).toFixed(1)), tau: Number((0.8 + 1.4 * w[3] * r()).toFixed(2))
+    };
+  };
+
+  if (active.length) {
+    for (let hh = curHour - LIFE_H + 1; hh <= curHour; hh++) {
+      const r = rng(hh * 7919 + 13);
+      let n = Math.floor(r() * (season ? 3 : 2)) + (hh === curHour ? 1 : 0);
+      n = Math.min(n, season ? 3 : 2);
+      for (let k = 0; k < n; k++) {
+        const { t, w } = active[Math.floor(r() * active.length)];
+        const age = (nowMs - hh * 3600000) / 3600000;
+        if (age >= LIFE_H) continue;
+        out.push(build(t, w, hh, k, r, age, ''));
+      }
+    }
+  }
+
+  if (out.length < MIN_STORMS) {
+    const r = rng(curHour * 104729 + 7), used = new Set(out.map(o => o.id.split('-')[0]));
+    const pool = STORM_TRACKS.filter(t => !used.has(t.id));
+    for (let k = 0; out.length < MIN_STORMS && pool.length; k++) {
+      const t = pool.splice(Math.floor(r() * pool.length), 1)[0];
+      const age = 0.3 + r() * (LIFE_H - 1.0);
+      out.push(build(t, [0, 360, .6, .9], curHour, k, r, age, 'm'));
     }
   }
   return out;
@@ -439,7 +809,7 @@ app.get('/api/mars-weather', async (req, res) => {
     remsLastSeen: rems ? { date: rems.date, ageDays: rems.ageDays } : null,
     tau: Number((0.5 + (storms.length ? Math.max(...storms.map(s => s.tau)) * 0.1 : 0)).toFixed(2)),
     storms, stormSource: 'CLIMATOLOGY_MRO_MARCI',
-    note: 'Положення бур — модель за кліматологією треків (MRO/MARCI), а не живе спостереження: відкритого API з полігонами бур у реальному часі не існує.'
+    note: 'Положення бур — модель за кліматологією треків (MRO/MARCI), а не живе спостереження: відкритого API з полігонами бур у реальному часі не існує. Поза сезоном бур для наочності показано кілька слабших штормів.'
   };
   lastWeatherFetchTime = now;
   res.json(cachedMarsWeather);
