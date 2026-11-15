@@ -355,7 +355,7 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
 .p-value { font-size: 0.8rem; font-weight: 600; color: var(--text-dark); }
 
 /* Кнопки дій */
-.action-buttons { display: flex; gap: 8px; margin-bottom: 16px; }
+.action-buttons { display: flex; gap: 8px; margin-bottom: 10px; }
 .btn-main, .btn-sub { padding: 12px; text-align: center; }
 .btn-main { flex: 2; background: var(--orange); color: #fff; border: none; font-size: 0.76rem; box-shadow: 0 4px 18px rgba(255, 87, 34, 0.3); }
 .btn-main:hover { background: var(--orange-dark); }
@@ -422,7 +422,7 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
 .auth-tabs { background: var(--bg-alt); margin-bottom: 16px; }
 
 .z-tab, .tab-btn, .auth-tab-btn { flex: 1; background: transparent; border: none; text-align: center; border-radius: 9999px; }
-.z-tab { color: var(--text-sub); font-size: 0.65rem; padding: 6px 8px; font-weight: 600; }
+.z-tab { color: var(--text-sub); font-size: 0.62rem; padding: 6px; font-weight: 600; }
 .z-tab.active { background: #fff; color: var(--orange); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); }
 
 .zone-quick-search { margin-bottom: 8px; }
@@ -458,7 +458,7 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
 .tr-chip:hover { color: var(--orange); }
 
 /* Звіт розрахованого маршруту */
-.route-report { padding-top: 14px; border-top: 1px solid var(--border); margin-top: 14px; }
+.route-report { padding-top: 12px; border-top: 1px solid var(--border); margin-top: 0; margin-bottom: 16px; }
 
 .scanner-status-box {
   background: rgba(255, 87, 34, 0.08);
@@ -734,14 +734,14 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
 }
 
 @media (max-width: 480px) {
-  .metrics-grid, .elevation-compare-box { grid-template-columns: 1fr; }
+  .metrics-grid, .elevation-compare-box, .supply-grid { grid-template-columns: 1fr; }
+  .metric-time-card { grid-column: span 1; }
 }
 
 /* ============================================================================
    МАРСІАНСЬКА ПИЛОВА БУРЯ (STORM HAZARD) ТА ПОГОДНИЙ РАДАР NASA
    ============================================================================ */
 
-/* Спливаючий банер штормового попередження */
 .storm-alert-banner {
   position: absolute;
   top: 76px;
@@ -850,7 +850,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   color: var(--text-dark);
 }
 
-/* Модальне вікно погоди */
 .modal-weather-card {
   max-width: 640px;
   width: 92vw;
@@ -863,7 +862,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   border: 1px solid rgba(255, 61, 0, 0.35);
 }
 
-/* Сітка телеметрії NASA */
 .weather-telemetry-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -909,7 +907,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   color: var(--text-sub);
 }
 
-/* Секція симуляції бурі */
 .storm-control-section {
   border: 1px solid var(--border-lg);
   border-radius: 18px;
@@ -1066,9 +1063,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   height: 16px;
 }
 
-/* === СТИЛІ LEAFLET КАРТИ ДЛЯ РУХОМОЇ БУРІ === */
-
-/* Зовнішній пиловий шлейф */
 .storm-outer-pulse {
   stroke: #FF7043 !important;
   stroke-width: 1.8px !important;
@@ -1079,7 +1073,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   animation: stormDashRotate 16s linear infinite, stormGlowPulse 2.8s ease-in-out infinite alternate !important;
 }
 
-/* Ядро небезпечної зони */
 .storm-core-hazard {
   stroke: #FF2E38 !important;
   stroke-width: 2.8px !important;
@@ -1120,7 +1113,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   to { transform: rotate(360deg); }
 }
 
-/* Маркер центру вихору */
 .storm-vortex-pin {
   display: flex;
   flex-direction: column;
@@ -1172,10 +1164,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
 .storm-popup .leaflet-popup-tip {
   background: #0F172A !important;
 }
-
-/* ============================================================================
-   ВІДЖЕТ РЕАЛЬНОЇ ПОГОДИ НА МАРСІ З ФОТОГРАФІЄЮ (LIVE NASA WEATHER WIDGET)
-   ============================================================================ */
 
 .mars-weather-widget {
   position: absolute;
@@ -1273,7 +1261,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   gap: 10px;
 }
 
-/* Контейнер реального фото з марсохода */
 .mww-photo-container {
   position: relative;
   width: 100%;
@@ -1333,7 +1320,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   box-shadow: 0 2px 8px rgba(255, 61, 0, 0.5);
 }
 
-/* Сітка статистики погоди */
 .mww-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1368,7 +1354,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   color: var(--text-sub);
 }
 
-/* Банер бурі у віджеті */
 .mww-storm-banner {
   display: flex;
   align-items: center;
@@ -1418,11 +1403,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   background: #D84315;
 }
 
-/* ============================================================================
-   СУПУТНИКОВЕ ЗОБРАЖЕННЯ БУРІ НА LEAFLET КАРТІ
-   ============================================================================ */
-
-/* Використовуємо незалежну властивість rotate (не transform), щоб зберегти Leaflet translate3d */
 .storm-satellite-overlay {
   border-radius: 50% !important;
   mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0.85) 60%, rgba(0, 0, 0, 0) 80%) !important;
@@ -1448,7 +1428,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   filter: drop-shadow(0 0 4px #000);
 }
 
-/* Спливаюча картка бурі Leaflet */
 .storm-leaflet-popup .leaflet-popup-content-wrapper {
   background: rgba(15, 23, 42, 0.96) !important;
   border: 2px solid #FF3D00 !important;
@@ -1558,7 +1537,6 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
   background: #475569;
 }
 
-/* Фотогалерея в модальному вікні погоди */
 .modal-photos-showcase {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1616,4 +1594,543 @@ strong, b, .highlight-orange { color: var(--orange) !important; font-weight: 700
     right: 14px;
     max-width: calc(100vw - 28px);
   }
+}
+
+/* ============================================================================
+   МАРСІАНСЬКІ БАЗИ ТА КНОПКА ЕКСТРЕНОГО ПЕРЕНАПРАВЛЕННЯ SOS
+   ============================================================================ */
+
+.dot-base {
+  background: #0EA5E9;
+  box-shadow: 0 0 8px #0EA5E9;
+}
+
+.btn-toggle.active-base {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284C7;
+  border-color: #0EA5E9;
+}
+
+.btn-toggle.active-base.active {
+  background: #0284C7;
+  color: #fff;
+  border-color: #0284C7;
+}
+
+.btn-toggle.active-base.active .dot-base {
+  background: #fff;
+  box-shadow: 0 0 8px #fff;
+}
+
+.zone-switch-card.base-card,
+.zone-item.base-item {
+  border-left: 3px solid #0EA5E9;
+}
+
+.base-pill {
+  color: #0284C7;
+}
+
+.switch-btn.active.base-switch {
+  background: #0EA5E9;
+  border-color: #0EA5E9;
+}
+
+/* Кнопки SOS */
+.btn-sos-hud {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 9999px;
+  border: 2px solid #FF2E38;
+  background: linear-gradient(135deg, #FF2E38 0%, #D50000 100%);
+  color: #fff;
+  font-family: var(--font-pixel);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 46, 56, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-sos-hud:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(255, 46, 56, 0.65);
+}
+
+.btn-sos-hud:active {
+  transform: scale(0.96);
+}
+
+.sos-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px #fff;
+  animation: sosPulseAnim 1s ease-in-out infinite alternate;
+}
+
+.btn-sos-main {
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 9999px;
+  border: 1.5px solid #FF2E38;
+  background: linear-gradient(135deg, rgba(255, 46, 56, 0.12) 0%, rgba(255, 87, 34, 0.14) 100%);
+  color: #DC2626;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: 0.25s;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(255, 46, 56, 0.15);
+}
+
+.btn-sos-main:hover {
+  background: linear-gradient(135deg, #FF2E38 0%, #E64A19 100%);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(255, 46, 56, 0.4);
+}
+
+@keyframes sosPulseAnim {
+  0% { transform: scale(0.85); opacity: 0.65; }
+  100% { transform: scale(1.25); opacity: 1; }
+}
+
+/* Маркери баз на 2D-мапі */
+.mars-base-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.mars-base-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #38BDF8;
+  color: #38BDF8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.65);
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.mars-base-pin:hover .mars-base-badge {
+  transform: scale(1.16);
+  border-color: #fff;
+}
+
+.mars-base-label {
+  margin-top: 3px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  color: #E0F2FE;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 768px) {
+  .btn-sos-hud {
+    padding: 7px 12px;
+    font-size: 0.68rem;
+  }
+}
+
+/* ============================================================================
+   РОЗРАХУНОК ЧАСУ МАРШРУТУ ТА ТАЙМЕР ІЗ ШТРАФОМ ×2 У НЕБЕЗПЕЧНИХ ЗОНАХ
+   ============================================================================ */
+
+.metric-time-card {
+  grid-column: span 2;
+  background: linear-gradient(135deg, #F8FAFC 0%, #FFF7F5 100%);
+  border: 1px solid rgba(255, 87, 34, 0.25);
+}
+
+.metric-time-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.metric-time-head .lbl {
+  margin-bottom: 0;
+}
+
+.time-penalty-pill {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fff;
+  background: #FF2E38;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  letter-spacing: 0.03em;
+}
+
+.metric-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.64rem;
+  color: var(--text-sub);
+  font-weight: 600;
+}
+
+.route-timer-box {
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-lg);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+}
+
+.route-timer-box.is-hazard {
+  border-color: #FF2E38;
+  background: #FFF5F5;
+  box-shadow: 0 0 18px rgba(255, 46, 56, 0.22);
+}
+
+.rt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rt-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: 0.03em;
+}
+
+.rt-mult-badge {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  color: var(--green-dark);
+  background: var(--green-tint);
+  border: 1px solid var(--green);
+}
+
+.rt-mult-badge.is-x2 {
+  color: #fff;
+  background: #FF2E38;
+  border-color: #FF2E38;
+  box-shadow: 0 0 12px rgba(255, 46, 56, 0.55);
+  animation: sosPulseAnim 0.7s ease-in-out infinite alternate;
+}
+
+.rt-clock-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rt-clock {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: 0.02em;
+}
+
+.route-timer-box.is-hazard .rt-clock {
+  color: #DC2626;
+}
+
+.rt-total {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rt-zone-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.route-timer-box.is-hazard .rt-zone-status {
+  color: #DC2626;
+}
+
+.rt-breakdown {
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  color: var(--text-sub);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.route-timer-box.is-hazard .rt-breakdown {
+  background: rgba(255, 46, 56, 0.08);
+  border-color: rgba(255, 46, 56, 0.3);
+  color: #B91C1C;
+}
+
+.rt-progress-track {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--bg-muted);
+  overflow: hidden;
+  border: 1px solid var(--border-md);
+  margin-bottom: 10px;
+}
+
+.rt-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: rgba(15, 23, 42, 0.75);
+  border-right: 3px solid #00F0FF;
+  transition: width 0.08s linear;
+}
+
+.route-timer-box.is-hazard .rt-progress-fill {
+  background: rgba(255, 46, 56, 0.65);
+  border-right-color: #FFF;
+}
+
+.rt-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.rt-btn {
+  flex: 1;
+  border: 1px solid var(--border-md);
+  border-radius: 9999px;
+  padding: 7px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.rt-btn-play {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+}
+
+.rt-btn-play:hover {
+  background: var(--orange-dark);
+}
+
+.rt-btn-reset {
+  background: var(--bg-alt);
+  color: #334155;
+}
+
+.rt-btn-reset:hover {
+  background: var(--bg-muted);
+}
+
+/* ============================================================================
+   КАЛЬКУЛЯТОР ПРИПАСІВ (КИСЕНЬ, БЕНЗИН І ОКРЕМО ВОДА)
+   ============================================================================ */
+
+.supply-calc-box {
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-lg);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.sc-calc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sc-calc-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: 0.03em;
+}
+
+.crew-stepper {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border-md);
+  border-radius: 9999px;
+  padding: 2px 6px;
+}
+
+.crew-lbl {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-sub);
+  padding-left: 3px;
+}
+
+.crew-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--orange);
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crew-btn:hover {
+  background: var(--orange);
+  color: #fff;
+}
+
+.crew-val {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  min-width: 14px;
+  text-align: center;
+}
+
+.supply-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.supply-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.supply-o2 {
+  border-left: 3px solid #10B981;
+}
+
+.supply-fuel {
+  border-left: 3px solid #FF5722;
+}
+
+.supply-lbl {
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.supply-val {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.supply-sub {
+  font-size: 0.6rem;
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+/* Окремий блок для води */
+.supply-water-block {
+  background: #F0F9FF;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  border-left: 3px solid #0EA5E9;
+  border-radius: 14px;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+}
+
+.sw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.sw-title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #0369A1;
+  letter-spacing: 0.02em;
+}
+
+.sw-val {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0C4A6E;
+}
+
+.sw-sub {
+  font-size: 0.62rem;
+  color: #0369A1;
+  font-weight: 500;
+}
+
+.supply-reserve-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
+.supply-reserve-row input[type="checkbox"] {
+  accent-color: var(--orange);
+  width: 14px;
+  height: 14px;
 }

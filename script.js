@@ -11,18 +11,10 @@ const MARS_STORM_PRESETS = {
 };
 
 const MARS_STORM_STATE = {
-    active: true,
-    speedMultiplier: 150,
-    autoAvoidRoute: true,
-    lastTick: performance.now(),
-    intervalId: null,
-    lastAutoRerouteTime: 0,
-    lastAutoRerouteKey: '',
-    bannerDismissed: false,
-    storms: [],
-    scenario: false,
-    source: '',
-    serverKey: ''
+    active: true, speedMultiplier: 150, autoAvoidRoute: true,
+    lastTick: performance.now(), intervalId: null, lastAutoRerouteTime: 0,
+    lastAutoRerouteKey: '', bannerDismissed: false, storms: [],
+    scenario: false, source: '', serverKey: ''
 };
 
 let currentMarsWeather = {
@@ -66,37 +58,31 @@ function smoothClosedPolygon(rawCoords, iterations = 4, maxStepDeg = 0.8) {
 }
 
 // ============================================================================
-// 1. КАТАЛОГ ЗОН МАРСА
+// 1. КАТАЛОГ ЗОН ТА БАЗ МАРСА
 // ============================================================================
 const MARS_ZONES = [
     {
         id: 'planum_boreum', name: 'Північна полярна шапка (Planum Boreum)', type: 'hazard', isPolar: true,
         coords: [
-            [74.34,-180.0],[74.0,-175.0],[73.75,-170.0],[73.6,-165.0],[73.55,-160.0],[73.57,-155.0],[73.64,-150.0],[73.72,-145.0],
-            [73.78,-140.0],[73.83,-135.0],[73.84,-130.0],[73.83,-125.0],[73.82,-120.0],[73.82,-115.0],[73.86,-110.0],[73.95,-105.0],
-            [74.08,-100.0],[74.23,-95.0],[74.39,-90.0],[74.51,-85.0],[74.56,-80.0],[74.51,-75.0],[74.34,-70.0],[74.06,-65.0],
-            [73.69,-60.0],[73.27,-55.0],[72.85,-50.0],[72.49,-45.0],[72.24,-40.0],[72.15,-35.0],[72.24,-30.0],[72.51,-25.0],
-            [72.95,-20.0],[73.5,-15.0],[74.11,-10.0],[74.72,-5.0],[75.27,0.0],[75.71,5.0],[76.0,10.0],[76.14,15.0],
-            [76.12,20.0],[75.99,25.0],[75.76,30.0],[75.48,35.0],[75.17,40.0],[74.86,45.0],[74.55,50.0],[74.26,55.0],
-            [73.97,60.0],[73.66,65.0],[73.34,70.0],[73.0,75.0],[72.64,80.0],[72.3,85.0],[72.0,90.0],[71.79,95.0],
-            [71.69,100.0],[71.76,105.0],[71.99,110.0],[72.38,115.0],[72.91,120.0],[73.54,125.0],[74.2,130.0],[74.83,135.0],
-            [75.37,140.0],[75.76,145.0],[75.98,150.0],[76.0,155.0],[75.85,160.0],[75.55,165.0],[75.17,170.0],[74.74,175.0],
-            [74.34,180.0],[89.99,180.0],[89.99,-180.0]
+            [74.34,-180],[74.0,-175],[73.75,-170],[73.6,-165],[73.55,-160],[73.57,-155],[73.64,-150],[73.72,-145],[73.78,-140],[73.83,-135],
+            [73.84,-130],[73.83,-125],[73.82,-120],[73.82,-115],[73.86,-110],[73.95,-105],[74.08,-100],[74.23,-95],[74.39,-90],[74.51,-85],
+            [74.56,-80],[74.51,-75],[74.34,-70],[74.06,-65],[73.69,-60],[73.27,-55],[72.85,-50],[72.49,-45],[72.24,-40],[72.15,-35],
+            [72.24,-30],[72.51,-25],[72.95,-20],[73.5,-15],[74.11,-10],[74.72,-5],[75.27,0],[75.71,5],[76.0,10],[76.14,15],[76.12,20],
+            [75.99,25],[75.76,30],[75.48,35],[75.17,40],[74.86,45],[74.55,50],[74.26,55],[73.97,60],[73.66,65],[73.34,70],[73.0,75],
+            [72.64,80],[72.3,85],[72.0,90],[71.79,95],[71.69,100],[71.76,105],[71.99,110],[72.38,115],[72.91,120],[73.54,125],[74.2,130],
+            [74.83,135],[75.37,140],[75.76,145],[75.98,150],[76.0,155],[75.85,160],[75.55,165],[75.17,170],[74.74,175],[74.34,180],[89.99,180],[89.99,-180]
         ]
     },
     {
         id: 'planum_australe', name: 'Південна полярна шапка (Planum Australe)', type: 'hazard', isPolar: true,
         coords: [
-            [-74.34,-180.0],[-74.0,-175.0],[-73.75,-170.0],[-73.6,-165.0],[-73.55,-160.0],[-73.57,-155.0],[-73.64,-150.0],[-73.72,-145.0],
-            [-73.78,-140.0],[-73.83,-135.0],[-73.84,-130.0],[-73.83,-125.0],[-73.82,-120.0],[-73.82,-115.0],[-73.86,-110.0],[-73.95,-105.0],
-            [-74.08,-100.0],[-74.23,-95.0],[-74.39,-90.0],[-74.51,-85.0],[-74.56,-80.0],[-74.51,-75.0],[-74.34,-70.0],[-74.06,-65.0],
-            [-73.69,-60.0],[-73.27,-55.0],[-72.85,-50.0],[-72.49,-45.0],[-72.24,-40.0],[-72.15,-35.0],[-72.24,-30.0],[-72.51,-25.0],
-            [-72.95,-20.0],[-73.5,-15.0],[-74.11,-10.0],[-74.72,-5.0],[-75.27,0.0],[-75.71,5.0],[-76.0,10.0],[-76.14,15.0],
-            [-76.12,20.0],[-75.99,25.0],[-75.76,30.0],[-75.48,35.0],[-75.17,40.0],[-74.86,45.0],[-74.55,50.0],[-74.26,55.0],
-            [-73.97,60.0],[-73.66,65.0],[-73.34,70.0],[-73.0,75.0],[-72.64,80.0],[-72.3,85.0],[-72.0,90.0],[-71.79,95.0],
-            [-71.69,100.0],[-71.76,105.0],[-71.99,110.0],[-72.38,115.0],[-72.91,120.0],[-73.54,125.0],[-74.2,130.0],[-74.83,135.0],
-            [-75.37,140.0],[-75.76,145.0],[-75.98,150.0],[-76.0,155.0],[-75.85,160.0],[-75.55,165.0],[-75.17,170.0],[-74.74,175.0],
-            [-74.34,180.0],[-89.99,180.0],[-89.99,-180.0]
+            [-74.34,-180],[-74.0,-175],[-73.75,-170],[-73.6,-165],[-73.55,-160],[-73.57,-155],[-73.64,-150],[-73.72,-145],[-73.78,-140],[-73.83,-135],
+            [-73.84,-130],[-73.83,-125],[-73.82,-120],[-73.82,-115],[-73.86,-110],[-73.95,-105],[-74.08,-100],[-74.23,-95],[-74.39,-90],[-74.51,-85],
+            [-74.56,-80],[-74.51,-75],[-74.34,-70],[-74.06,-65],[-73.69,-60],[-73.27,-55],[-72.85,-50],[-72.49,-45],[-72.24,-40],[-72.15,-35],
+            [-72.24,-30],[-72.51,-25],[-72.95,-20],[-73.5,-15],[-74.11,-10],[-74.72,-5],[-75.27,0],[-75.71,5],[-76.0,10],[-76.14,15],[-76.12,20],
+            [-75.99,25],[-75.76,30],[-75.48,35],[-75.17,40],[-74.86,45],[-74.55,50],[-74.26,55],[-73.97,60],[-73.66,65],[-73.34,70],[-73.0,75],
+            [-72.64,80],[-72.3,85],[-72.0,90],[-71.79,95],[-71.69,100],[-71.76,105],[-71.99,110],[-72.38,115],[-72.91,120],[-73.54,125],[-74.2,130],
+            [-74.83,135],[-75.37,140],[-75.76,145],[-75.98,150],[-76.0,155],[-75.85,160],[-75.55,165],[-75.17,170],[-74.74,175],[-74.34,180],[-89.99,180],[-89.99,-180]
         ]
     },
     { id: 'valles_marineris', name: 'Долина Марінера та хаос Аврора (Valles Marineris & Aurorae Chaos)', type: 'hazard', coords: [[-9.68,-90.4],[-11.26,-82.52],[-13.14,-72.68],[-15.34,-62.73],[-16.67,-52.49],[-17.0,-42.0],[-15.65,-34.38],[-13.22,-27.34],[-7.78,-28.66],[-8.75,-35.62],[-9.0,-42.0],[-7.73,-51.51],[-6.26,-61.27],[-4.86,-71.32],[-3.74,-81.48],[-3.32,-89.6]] },
@@ -139,22 +125,38 @@ MARS_ZONES.forEach(z => {
 const HAZARD_ZONES = MARS_ZONES.filter(z => z.type === 'hazard');
 const SAFE_ZONES = MARS_ZONES.filter(z => z.type === 'safe');
 
-let showHazardZones = true;
-let showSafeZones = true;
-let hazardsAvoidanceActive = true;
-let is3DMode = false;
-let toastTimeout = null;
-let activeZoneFilter = 'all';
-let currentSelectedZoneId = null;
-let safeHoverMarker = null;
-let fastHoverMarker = null;
+const MARS_BASES = [
+    { id: 'base_jezero', name: 'База «Єзеро-Персеверанс»', shortName: 'ЄЗЕРО', zoneId: 'jezero_crater', lat: 18.5, lon: 77.1, type: 'Дослідницький хаб' },
+    { id: 'base_gale', name: 'Станція «Гейл-К’юріосіті»', shortName: 'ГЕЙЛ', zoneId: 'gale_crater', lat: -5.4, lon: 137.6, type: 'Гірничо-наукова база' },
+    { id: 'base_chryse', name: 'Колонія «Хриса-Вікінг»', shortName: 'ХРИСА', zoneId: 'chryse_planitia', lat: 26.0, lon: -39.5, type: 'Головний космопорт' },
+    { id: 'base_acidalia', name: 'Аванпост «Арес-Ацидалія»', shortName: 'АЦИДАЛІЯ', zoneId: 'acidalia_planitia', lat: 45.4, lon: -31.8, type: 'Енерговузол' },
+    { id: 'base_arcadia', name: 'Льодова база «Аркадія»', shortName: 'АРКАДІЯ', zoneId: 'arcadia_planitia', lat: 43.3, lon: -163.5, type: 'Водовидобувний комплекс' },
+    { id: 'base_utopia', name: 'Станція «Утопія-Чжужун»', shortName: 'УТОПІЯ', zoneId: 'utopia_planitia', lat: 41.5, lon: 114.7, type: 'Підповерхневий бункер' },
+    { id: 'base_amazonis', name: 'База «Амазонія-Вест»', shortName: 'АМАЗОНІЯ', zoneId: 'amazonis_planitia', lat: 22.3, lon: -159.4, type: 'Логістичний центр' },
+    { id: 'base_elysium', name: 'Станція «Елізій-ІнСайт»', shortName: 'ЕЛІЗІЙ', zoneId: 'elysium_planitia', lat: 6.4, lon: 158.0, type: 'Геотермальна база' },
+    { id: 'base_isidis', name: 'Аванпост «Ісіда-Горизонт»', shortName: 'ІСІДА', zoneId: 'isidis_planitia', lat: 14.3, lon: 88.2, type: 'Транзитний притулок' },
+    { id: 'base_meridiani', name: 'Станція «Меридіан-Оппортьюніті»', shortName: 'МЕРИДІАН', zoneId: 'meridiani_planum', lat: -0.3, lon: -1.7, type: 'Екваторіальний маяк' },
+    { id: 'base_hesperia', name: 'Аванпост «Гесперія»', shortName: 'ГЕСПЕРІЯ', zoneId: 'hesperia_planum', lat: -22.5, lon: 112.8, type: 'Південний форпост' },
+    { id: 'base_hellas', name: 'Глибока база «Еллада»', shortName: 'ЕЛЛАДА', zoneId: 'hellas_floor', lat: -41.7, lon: 70.3, type: 'Атмосферне укриття' },
+    { id: 'base_vastitas', name: 'Станція «Вастітас-Північ»', shortName: 'ВАСТІТАС', zoneId: 'vastitas_borealis', lat: 62.6, lon: 17.5, type: 'Кріогенна станція' },
+    { id: 'base_casius', name: 'Релей-база «Касій»', shortName: 'КАСІЙ', zoneId: 'casius_plain', lat: 34.4, lon: 68.1, type: 'Станція зв’язку' }
+];
 
-// ============================================================================
-// 2. ГЕОМЕТРИЧНІ ФУНКЦІЇ
-// ============================================================================
-function normalizeLon(lon) {
-    return ((lon + 180) % 360 + 360) % 360 - 180;
-}
+MARS_BASES.forEach(b => {
+    const z = SAFE_ZONES.find(sz => sz.id === b.zoneId);
+    if (z && !isPointInPolygon(b.lat, b.lon, z.smoothCoords, z.bbox)) {
+        b.lat = Number(z.centroid[0].toFixed(2));
+        b.lon = Number(z.centroid[1].toFixed(2));
+    }
+});
+
+let showHazardZones = true, showSafeZones = true, showBases = true;
+let hazardsAvoidanceActive = true, is3DMode = false, toastTimeout = null;
+let activeZoneFilter = 'all', currentSelectedZoneId = null;
+let safeHoverMarker = null, fastHoverMarker = null, isSosRouteActive = false;
+
+// 2. ГЕОМЕТРІЯ
+function normalizeLon(lon) { return ((lon + 180) % 360 + 360) % 360 - 180; }
 
 function isPointInPolygon(lat, lon, poly, bbox) {
     if (lat < bbox[0] || lat > bbox[1] || lon < bbox[2] || lon > bbox[3]) return false;
@@ -169,10 +171,14 @@ function isPointInPolygon(lat, lon, poly, bbox) {
 
 function calculateMarsDistance(lat1, lon1, lat2, lon2) {
     const toRad = Math.PI / 180;
-    const a = Math.sin((lat2 - lat1) * toRad / 2) ** 2 +
-              Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) *
-              Math.sin((lon2 - lon1) * toRad / 2) ** 2;
+    const a = Math.sin((lat2 - lat1) * toRad / 2) ** 2 + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin((lon2 - lon1) * toRad / 2) ** 2;
     return 2 * MARS_RADIUS_KM * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calculateShortestMarsDistance(lat1, lon1, lat2, lon2) {
+    const dLon = ((lon2 - lon1 + 180) % 360 + 360) % 360 - 180, toRad = Math.PI / 180;
+    const a = Math.sin((lat2 - lat1) * toRad / 2) ** 2 + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon * toRad / 2) ** 2;
+    return 2 * MARS_RADIUS_KM * Math.atan2(Math.sqrt(Math.max(0, Math.min(1, a))), Math.sqrt(Math.max(0, 1 - a)));
 }
 
 function getMarsBearingRad(lat1, lon1, lat2, lon2) {
@@ -200,20 +206,15 @@ function makeMarsCircleCoords(lat, lon, radiusKm, steps = 40, seed = 0) {
     return pts;
 }
 
-// ============================================================================
-// 3. ТОПОГРАФІЧНА МАТ-МОДЕЛЬ MOLA
-// ============================================================================
+// 3. MOLA МОДЕЛЬ
 function getMolaElevation(lat, lon) {
     let elev = -1500 + Math.sin((lat - 8) * Math.PI / 180) * -2700;
     elev += Math.sin(lat * 0.12 + 0.3) * Math.cos(lon * 0.12) * 600;
     elev += Math.sin(lat * 0.35) * Math.cos(lon * 0.35) * 250;
-
     const dTharsis = Math.hypot((lat - 1) * 1.3, lon + 95);
     if (dTharsis < 38) elev += Math.cos((dTharsis / 38) * (Math.PI / 2)) * 6200;
-
     const dOly = Math.hypot(lat - 18.4, lon + 133.8);
     if (dOly < 5.5) elev += dOly > 3.6 ? (4000 + (5.5 - dOly) * 3500) : (11000 + (3.6 - dOly) * 2800);
-
     const dAsc = Math.hypot(lat - 11.8, lon + 104.5);
     if (dAsc < 4.5) elev += (4.5 - dAsc) * 2600;
     const dPav = Math.hypot(lat - 0.8, lon + 113.0);
@@ -222,19 +223,16 @@ function getMolaElevation(lat, lon) {
     if (dArs < 4.5) elev += (4.5 - dArs) * 2400;
     const dEly = Math.hypot(lat - 25.0, lon - 147.2);
     if (dEly < 5.0) elev += (5.0 - dEly) * 2200;
-
     if (lat >= -19.0 && lat <= 2.0 && lon >= -98.0 && lon <= -30.0) {
         const t = Math.max(0, Math.min(1, ((lon + 92.0) * 58.0 + (lat + 5.0) * -9.0) / (58 * 58 + 81)));
         const distToSpine = Math.hypot((lat - (-5.0 + t * -9.0)) * 1.5, lon - (-92.0 + t * 58.0));
         if (distToSpine < 4.8) elev -= Math.pow(Math.cos((distToSpine / 4.8) * (Math.PI / 2)), 1.8) * 8200;
     }
-
     const dNoctis = Math.hypot((lat + 8.0) * 1.4, lon + 100.0);
     if (dNoctis < 6.8) {
         const canyonGrid = Math.sin(lat * 2.8) * Math.sin(lon * 2.8);
         elev -= (1 - dNoctis / 6.8) * 3400 + (canyonGrid > 0.1 ? canyonGrid * 2600 : 0);
     }
-
     const dHel = Math.hypot((lat + 42.0) * 1.1, lon - 70.0);
     if (dHel < 18.0) {
         elev += dHel > 12.0 ? Math.sin(((dHel - 12.0) / 6.0) * Math.PI) * 2400 : -Math.cos((dHel / 12.0) * (Math.PI / 2)) * 5600;
@@ -246,18 +244,12 @@ let lastTeleTime = 0;
 function updateTelemetry(lat, lon) {
     const elLat = document.getElementById('teleLat'), elLon = document.getElementById('teleLon'), elAlt = document.getElementById('teleAlt');
     if (!elLat || !elLon || !elAlt) return;
-    if (lat === null || lon === null || isNaN(lat) || isNaN(lon)) {
-        elLat.innerText = '---'; elLon.innerText = '---'; elAlt.innerText = '---'; return;
-    }
+    if (lat === null || lon === null || isNaN(lat) || isNaN(lon)) { elLat.innerText = '---'; elLon.innerText = '---'; elAlt.innerText = '---'; return; }
     const clampedLat = Math.max(-90, Math.min(90, lat)), clampedLon = normalizeLon(lon), alt = getMolaElevation(clampedLat, clampedLon);
-    elLat.innerText = `${clampedLat.toFixed(4)}°`;
-    elLon.innerText = `${clampedLon.toFixed(4)}°`;
-    elAlt.innerText = `${alt > 0 ? '+' : ''}${alt} M`;
+    elLat.innerText = `${clampedLat.toFixed(4)}°`; elLon.innerText = `${clampedLon.toFixed(4)}°`; elAlt.innerText = `${alt > 0 ? '+' : ''}${alt} M`;
 }
 
-// ============================================================================
-// 4. LEAFLET 2D — ЦИЛІНДРИЧНА КАРТА
-// ============================================================================
+// 4. LEAFLET 2D
 const map = L.map('map', {
     crs: L.CRS.EPSG4326, center: [0, 0], zoom: 2, zoomSnap: 0.05,
     preferCanvas: true, worldCopyJump: false, maxBounds: [[-90, -1e9], [90, 1e9]], maxBoundsViscosity: 1.0
@@ -298,11 +290,10 @@ function updatePoleToPoleZoom() {
     map.setMinZoom(safeMinZoom);
     if (map.getZoom() < safeMinZoom) map.setZoom(safeMinZoom);
 }
-
 updatePoleToPoleZoom();
+
 window.addEventListener('resize', () => {
-    updatePoleToPoleZoom();
-    syncWorldLayers();
+    updatePoleToPoleZoom(); syncWorldLayers();
     if (is3DMode && myGlobe) myGlobe.width(window.innerWidth).height(window.innerHeight);
 });
 
@@ -313,6 +304,7 @@ map.on('dragend', () => { setTimeout(() => { isMapDragging = false; }, 100); });
 const hazardLayerGroup = L.layerGroup().addTo(map);
 const safeLayerGroup = L.layerGroup().addTo(map);
 const selectedZoneGroup = L.layerGroup().addTo(map);
+const baseLayerGroup = L.layerGroup().addTo(map);
 const markerAGroup = L.layerGroup().addTo(map);
 const markerBGroup = L.layerGroup().addTo(map);
 const safePolylineGroup = L.layerGroup().addTo(map);
@@ -323,40 +315,26 @@ const stormPane = map.createPane('stormPane');
 stormPane.style.zIndex = 460;
 const stormVectorRenderer = L.svg({ pane: 'stormPane' });
 
-// Саме зображення торнадо не перехоплює кліки — клікабельна лише сіра пунктирна зона
 const StormImageOverlay = L.ImageOverlay.extend({
     _initImage: function () {
         const wrap = this._image = L.DomUtil.create('div', 'leaflet-image-layer' + (this._zoomAnimated ? ' leaflet-zoom-animated' : ''));
         wrap.style.pointerEvents = 'none';
         const img = this._innerImg = document.createElement('img');
-        img.src = this._url;
-        img.alt = this.options.alt || '';
-        img.className = 'storm-tornado-img';
-        img.style.pointerEvents = 'none';
-        img.onselectstart = L.Util.falseFn;
-        img.onmousemove = L.Util.falseFn;
-        img.onload = L.Util.bind(this.fire, this, 'load');
-        img.onerror = L.Util.bind(this.fire, this, 'error');
+        img.src = this._url; img.alt = this.options.alt || ''; img.className = 'storm-tornado-img';
+        img.style.pointerEvents = 'none'; img.onselectstart = L.Util.falseFn; img.onmousemove = L.Util.falseFn;
+        img.onload = L.Util.bind(this.fire, this, 'load'); img.onerror = L.Util.bind(this.fire, this, 'error');
         wrap.appendChild(img);
     },
-    setUrl: function (url) {
-        this._url = url;
-        if (this._innerImg) this._innerImg.src = url;
-        return this;
-    },
-    _updateOpacity: function () {
-        L.DomUtil.setOpacity(this._image, this.options.opacity);
-    }
+    setUrl: function (url) { this._url = url; if (this._innerImg) this._innerImg.src = url; return this; },
+    _updateOpacity: function () { L.DomUtil.setOpacity(this._image, this.options.opacity); }
 });
 
 function renderZones2D() {
-    hazardLayerGroup.clearLayers();
-    safeLayerGroup.clearLayers();
+    hazardLayerGroup.clearLayers(); safeLayerGroup.clearLayers();
     MARS_ZONES.forEach(z => {
         const isHaz = z.type === 'hazard';
         activeWorldOffsets.forEach(offset => {
-            const shiftedCoords = z.smoothCoords.map(pt => [pt[0], pt[1] + offset * 360]);
-            const poly = L.polygon(shiftedCoords, {
+            const poly = L.polygon(z.smoothCoords.map(pt => [pt[0], pt[1] + offset * 360]), {
                 color: isHaz ? '#FF2E38' : '#00FFAA', fillColor: isHaz ? '#FF2E38' : '#00FFAA',
                 fillOpacity: isHaz ? 0.24 : 0.18, weight: z.isPolar ? 0 : 2.2, stroke: !z.isPolar,
                 lineCap: 'round', lineJoin: 'round', smoothFactor: 0.5, dashArray: isHaz ? '6, 6' : '8, 8',
@@ -374,6 +352,35 @@ function update2DLayerVisibility() {
     if (showSafeZones) { if (!map.hasLayer(safeLayerGroup)) map.addLayer(safeLayerGroup); }
     else { if (map.hasLayer(safeLayerGroup)) map.removeLayer(safeLayerGroup); }
 }
+
+function renderBases2D() {
+    baseLayerGroup.clearLayers();
+    if (!showBases) return;
+    MARS_BASES.forEach(b => {
+        activeWorldOffsets.forEach(offset => {
+            const icon = L.divIcon({
+                className: 'custom-pin',
+                html: `<div class="mars-base-pin" title="${b.name}"><div class="mars-base-badge">⌂</div><div class="mars-base-label">${b.shortName}</div></div>`,
+                iconSize: [0, 0], iconAnchor: [0, 0]
+            });
+            const marker = L.marker([b.lat, b.lon + offset * 360], { icon, zIndexOffset: 380 });
+            marker.on('click', (e) => { L.DomEvent.stopPropagation(e); handleCoordinateSelect(b.lat, b.lon); });
+            baseLayerGroup.addLayer(marker);
+        });
+    });
+}
+
+window.focusOnBase = function(baseId) {
+    const b = MARS_BASES.find(x => x.id === baseId);
+    if (!b) return;
+    if (b.zoneId) highlightSelectedZone(b.zoneId);
+    if (is3DMode && myGlobe) myGlobe.pointOfView({ lat: b.lat, lng: normalizeLon(b.lon), altitude: 1.35 }, 1200);
+    else {
+        const closestOffset = Math.round((map.getCenter().lng - b.lon) / 360);
+        map.flyTo([b.lat, b.lon + closestOffset * 360], Math.max(map.getZoom(), 3.2), { duration: 1.2 });
+    }
+    showWarning(`🏠 БАЗА: ${b.name} (${b.type})`);
+};
 
 function highlightSelectedZone(zoneId) {
     currentSelectedZoneId = zoneId || null;
@@ -408,10 +415,9 @@ function syncWorldLayers(force = false) {
         nextOffsets[0] !== activeWorldOffsets[0] || nextOffsets[nextOffsets.length - 1] !== activeWorldOffsets[activeWorldOffsets.length - 1];
     if (!changed) return;
     activeWorldOffsets = nextOffsets;
-    renderZones2D();
+    renderZones2D(); renderBases2D();
     if (currentSelectedZoneId) highlightSelectedZone(currentSelectedZoneId);
-    updateMarkerLayers();
-    rerenderRoutes2D();
+    updateMarkerLayers(); rerenderRoutes2D();
     if (typeof renderStorms2D === 'function') renderStorms2D();
 }
 
@@ -430,9 +436,7 @@ map.on('mousemove', (e) => {
     updateTelemetry(e.latlng.lat, e.latlng.lng);
 });
 
-// ============================================================================
 // 5. 3D GLOBE
-// ============================================================================
 function getSphericalSignedArea(ring) {
     const pts = (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ? ring.slice(0, -1) : ring;
     if (pts.length < 3) return 0;
@@ -480,19 +484,13 @@ function getPolarCapMultiCoords(coords, isNorth) {
     const poleLat = isNorth ? 89.9 : -89.9;
     const west = edge.filter(p => p[1] <= 0).map(p => [p[1], p[0]]);
     const east = edge.filter(p => p[1] >= 0).map(p => [p[1], p[0]]);
-
     if (isNorth) {
-        const wRing = [[-180, poleLat], [0, poleLat], ...west.slice().reverse(), [-180, poleLat]];
-        const eRing = [[0, poleLat], [180, poleLat], ...east.slice().reverse(), [0, poleLat]];
-        return [[wRing], [eRing]];
+        return [[ [[-180, poleLat], [0, poleLat], ...west.slice().reverse(), [-180, poleLat]] ], [ [[0, poleLat], [180, poleLat], ...east.slice().reverse(), [0, poleLat]] ]];
     }
-    const wRing = [...west, [0, poleLat], [-180, poleLat], west[0]];
-    const eRing = [...east, [180, poleLat], [0, poleLat], east[0]];
-    return [[wRing], [eRing]];
+    return [[ [...west, [0, poleLat], [-180, poleLat], west[0]] ], [ [...east, [180, poleLat], [0, poleLat], east[0]] ]];
 }
 
 let hovered3DZone = null;
-
 function getActive3DFeatures() {
     const features = [];
     MARS_ZONES.forEach(z => {
@@ -506,76 +504,77 @@ function getActive3DFeatures() {
             strokeColor: z.isPolar ? 'rgba(255, 46, 56, 0.15)' : (isHaz ? '#FF2E38' : '#00FFAA'),
             altitude: isHaz ? 0.0045 : 0.0035
         };
-
         if (z.id === 'planum_boreum' || z.id === 'planum_australe') {
-            features.push({
-                type: 'Feature',
-                properties: baseProps,
-                geometry: { type: 'MultiPolygon', coordinates: getPolarCapMultiCoords(z.coords, z.id === 'planum_boreum') }
-            });
+            features.push({ type: 'Feature', properties: baseProps, geometry: { type: 'MultiPolygon', coordinates: getPolarCapMultiCoords(z.coords, z.id === 'planum_boreum') } });
         } else {
-            features.push({
-                type: 'Feature',
-                properties: baseProps,
-                geometry: { type: 'Polygon', coordinates: [densifyPolygonRing(z.smoothCoords)] }
-            });
+            features.push({ type: 'Feature', properties: baseProps, geometry: { type: 'Polygon', coordinates: [densifyPolygonRing(z.smoothCoords)] } });
         }
     });
     return features;
 }
 
-let myGlobe = null;
-let globeInitializedView = false;
+let myGlobe = null, globeInitializedView = false;
+function update3DBases() {
+    if (!myGlobe) return;
+    const pts = showBases ? MARS_BASES.map(b => ({
+        id: b.id, lat: b.lat, lng: normalizeLon(b.lon), name: b.name, type: b.type, color: '#38BDF8', radius: 0.42, altitude: 0.025
+    })) : [];
+    myGlobe.pointsData(pts).pointLat('lat').pointLng('lng').pointColor('color').pointRadius('radius').pointAltitude('altitude')
+        .pointLabel(d => `<div style="background:rgba(15,23,42,0.92);color:#fff;padding:6px 10px;border-radius:8px;border:1px solid #38BDF8;font-family:'Space Grotesk',sans-serif;font-size:12px;"><b>🏠 ${d.name}</b><br><span style="color:#94A3B8;font-size:11px;">${d.type}</span></div>`)
+        .onPointClick(d => { if (d) handleCoordinateSelect(d.lat, d.lng); });
+}
+
 try {
     myGlobe = Globe()(document.getElementById('globe-container'))
-        .globeImageUrl(MARS_TEXTURE_URL).backgroundColor('#050608')
-        .showAtmosphere(true).atmosphereColor('#ff5533').atmosphereAltitude(0.12)
+        .globeImageUrl(MARS_TEXTURE_URL).backgroundColor('#050608').showAtmosphere(true).atmosphereColor('#ff5533').atmosphereAltitude(0.12)
         .polygonsData(getActive3DFeatures()).polygonGeoJsonGeometry(d => d.geometry)
         .polygonCapColor(d => d === hovered3DZone ? d.properties.hoverCapColor : d.properties.fillColor)
         .polygonSideColor(d => d.properties.sideColor).polygonStrokeColor(d => d.properties.strokeColor)
         .polygonAltitude(d => d === hovered3DZone ? Math.max(0.008, d.properties.altitude + 0.003) : d.properties.altitude)
         .polygonCapCurvatureResolution(2.0)
-        .onPolygonHover(d => {
-            if (d !== hovered3DZone) {
-                hovered3DZone = d;
-                myGlobe.polygonAltitude(myGlobe.polygonAltitude()).polygonCapColor(myGlobe.polygonCapColor());
-            }
-        })
+        .onPolygonHover(d => { if (d !== hovered3DZone) { hovered3DZone = d; myGlobe.polygonAltitude(myGlobe.polygonAltitude()).polygonCapColor(myGlobe.polygonCapColor()); } })
         .onPolygonClick((d, ev, coords) => { if (coords) handleCoordinateSelect(coords.lat, coords.lng); })
         .onGlobeClick(({ lat, lng }) => handleCoordinateSelect(lat, lng));
-} catch (err) {
-    console.warn("3D Globe:", err);
-}
+    update3DBases();
+} catch (err) { console.warn("3D Globe:", err); }
 
-// ============================================================================
 // 6. ПАНЕЛЬ ТА КЕРУВАННЯ
-// ============================================================================
 function setHazardVisibility(visible) {
     showHazardZones = visible;
     const btnTop = document.getElementById('btnVisHazards');
-    btnTop.classList.toggle('active', showHazardZones);
-    btnTop.classList.toggle('inactive', !showHazardZones);
+    btnTop.classList.toggle('active', showHazardZones); btnTop.classList.toggle('inactive', !showHazardZones);
     btnTop.innerHTML = `<span class="btn-dot ${showHazardZones ? 'dot-red' : 'dot-muted'}"></span>НЕБЕЗПЕКИ: ${showHazardZones ? 'ПОКАЗАНО' : 'ПРИХОВАНО'}`;
     document.getElementById('switchToggleHazards').classList.toggle('active', showHazardZones);
-    update2DLayerVisibility();
-    if (myGlobe) myGlobe.polygonsData(getActive3DFeatures());
+    update2DLayerVisibility(); if (myGlobe) myGlobe.polygonsData(getActive3DFeatures());
 }
 
 function setSafeVisibility(visible) {
     showSafeZones = visible;
     const btnTop = document.getElementById('btnVisSafe');
-    btnTop.classList.toggle('active', showSafeZones);
-    btnTop.classList.toggle('inactive', !showSafeZones);
+    btnTop.classList.toggle('active', showSafeZones); btnTop.classList.toggle('inactive', !showSafeZones);
     btnTop.innerHTML = `<span class="btn-dot ${showSafeZones ? 'dot-green' : 'dot-muted'}"></span>БЕЗПЕЧНІ: ${showSafeZones ? 'ПОКАЗАНО' : 'ПРИХОВАНО'}`;
     document.getElementById('switchToggleSafe').classList.toggle('active', showSafeZones);
-    update2DLayerVisibility();
-    if (myGlobe) myGlobe.polygonsData(getActive3DFeatures());
+    update2DLayerVisibility(); if (myGlobe) myGlobe.polygonsData(getActive3DFeatures());
+}
+
+function setBasesVisibility(visible) {
+    showBases = visible;
+    const btnTop = document.getElementById('btnVisBases');
+    if (btnTop) {
+        btnTop.classList.toggle('active', showBases); btnTop.classList.toggle('inactive', !showBases);
+        btnTop.innerHTML = `<span class="btn-dot ${showBases ? 'dot-base' : 'dot-muted'}"></span>БАЗИ: ${showBases ? 'ПОКАЗАНО' : 'ПРИХОВАНО'}`;
+    }
+    const sw = document.getElementById('switchToggleBases');
+    if (sw) sw.classList.toggle('active', showBases);
+    renderBases2D(); update3DBases();
 }
 
 document.getElementById('btnVisHazards').onclick = () => setHazardVisibility(!showHazardZones);
 document.getElementById('btnVisSafe').onclick = () => setSafeVisibility(!showSafeZones);
+document.getElementById('btnVisBases')?.addEventListener('click', () => setBasesVisibility(!showBases));
 document.getElementById('switchToggleHazards').onclick = () => setHazardVisibility(!showHazardZones);
 document.getElementById('switchToggleSafe').onclick = () => setSafeVisibility(!showSafeZones);
+document.getElementById('switchToggleBases')?.addEventListener('click', () => setBasesVisibility(!showBases));
 
 document.getElementById('btnToggleHazards').onclick = (e) => {
     hazardsAvoidanceActive = !hazardsAvoidanceActive;
@@ -600,7 +599,7 @@ document.getElementById('btnToggleView').onclick = () => {
             const c = map.getCenter();
             myGlobe.pointOfView({ lat: c.lat, lng: normalizeLon(c.lng), altitude: 2.1 }, 0);
         }
-        myGlobe.polygonsData(getActive3DFeatures());
+        myGlobe.polygonsData(getActive3DFeatures()); update3DBases();
         if (typeof update3DStormRings === 'function') update3DStormRings();
         update3DPinsAndPaths();
     }
@@ -632,11 +631,19 @@ function showWarning(msg) {
     toastTimeout = setTimeout(() => toast.classList.remove('show'), 6500);
 }
 
-// ============================================================================
-// 7. СПИСОК ЗОН ТА ФОКУСУВАННЯ
-// ============================================================================
+// 7. СПИСОК ЗОН ТА БАЗ
 function renderZonesList(searchQuery = '') {
     const container = document.getElementById('zonesListContainer'), query = searchQuery.toLowerCase().trim();
+    if (activeZoneFilter === 'base') {
+        const filteredBases = MARS_BASES.filter(b => !query || b.name.toLowerCase().includes(query) || b.type.toLowerCase().includes(query) || b.id.includes(query));
+        if (filteredBases.length === 0) { container.innerHTML = `<div style="font-size:0.72rem; color:#64748B; padding:10px; text-align:center;">Баз не знайдено</div>`; return; }
+        container.innerHTML = filteredBases.map(b => `
+            <div class="zone-item base-item" onclick="focusOnBase('${b.id}')">
+                <div class="zone-item-head"><span class="zone-item-title"><span class="btn-dot dot-base"></span>${b.name}</span><button class="zone-item-btn" onclick="event.stopPropagation(); focusOnBase('${b.id}')">⌖</button></div>
+            </div>
+        `).join('');
+        return;
+    }
     const filtered = MARS_ZONES.filter(z => (activeZoneFilter === 'all' || z.type === activeZoneFilter) && (!query || z.name.toLowerCase().includes(query) || z.id.includes(query)));
     if (filtered.length === 0) { container.innerHTML = `<div style="font-size:0.72rem; color:#64748B; padding:10px; text-align:center;">Зон не знайдено</div>`; return; }
     container.innerHTML = filtered.map(z => {
@@ -664,8 +671,7 @@ window.focusOnZone = function(zoneId) {
         const closestOffset = Math.round((map.getCenter().lng - zone.centroid[1]) / 360);
         map.flyTo([zone.centroid[0], zone.centroid[1] + closestOffset * 360], Math.max(map.getZoom(), 2.8), { duration: 1.2 });
     }
-    showWarning(`ФОКУС: ${zone.name}`);
-    displayZoneDetails(zoneId);
+    showWarning(`ФОКУС: ${zone.name}`); displayZoneDetails(zoneId);
     const sel = document.getElementById('zoneSelect');
     if (sel && sel.value !== zoneId) sel.value = zoneId;
 };
@@ -712,23 +718,17 @@ document.getElementById('btnCloseZoneCard')?.addEventListener('click', () => {
 });
 populateZoneSelect();
 
-// ============================================================================
-// 8. МАРКЕРИ ТА ЖИВІ МАРШРУТИ (ПІСЛЯ КНОПКИ ПІДТВЕРДИТИ)
-// ============================================================================
+// 8. МАРКЕРИ ТА МАРШРУТИ
 let ptA = null, ptB = null, fastRouteData = null, safeRouteData = null, activeRouteMode = 'safe';
-let routeConfirmed = false;
-let liveDragRouteTimer = null, lastLiveRouteTime = 0;
+let routeConfirmed = false, liveDragRouteTimer = null, lastLiveRouteTime = 0;
 
 function scheduleLiveRouteRebuild() {
     if (!routeConfirmed || !ptA || !ptB) return;
     const now = performance.now(), elapsed = now - lastLiveRouteTime;
-    if (elapsed >= 160) {
-        lastLiveRouteTime = now;
-        buildRoute(false);
-    } else if (!liveDragRouteTimer) {
+    if (elapsed >= 160) { lastLiveRouteTime = now; buildRoute(false); }
+    else if (!liveDragRouteTimer) {
         liveDragRouteTimer = setTimeout(() => {
-            liveDragRouteTimer = null;
-            lastLiveRouteTime = performance.now();
+            liveDragRouteTimer = null; lastLiveRouteTime = performance.now();
             if (routeConfirmed && ptA && ptB) buildRoute(false);
         }, 160 - elapsed);
     }
@@ -753,25 +753,23 @@ function renderSyncedMarker(group, pt, letter, isRed, onPointDrag, onPointChange
         marker.on('drag', (e) => {
             const raw = e.target.getLatLng(), normL = normalizeLon(raw.lng);
             group.eachLayer(m => { if (m !== marker) m.setLatLng([raw.lat, normL + m._worldOffset * 360]); });
-            onPointDrag({ lat: Math.max(-90, Math.min(90, Number(raw.lat.toFixed(4)))), lon: Number(normL.toFixed(4)) });
+            onPointDrag({ lat: Math.max(-90, Math.min(90, Number(Number(raw.lat).toFixed(4)))), lon: Number(normL.toFixed(4)) });
         });
         marker.on('dragend', (e) => {
             isMarkerDragging = false;
             const raw = e.target.getLatLng();
-            onPointChange({ lat: Math.max(-90, Math.min(90, Number(raw.lat.toFixed(4)))), lon: Number(normalizeLon(raw.lng).toFixed(4)) });
+            onPointChange({ lat: Math.max(-90, Math.min(90, Number(Number(raw.lat).toFixed(4)))), lon: Number(normalizeLon(raw.lng).toFixed(4)) });
         });
         group.addLayer(marker);
     });
 }
 
 function updateMarkerLayers() {
-    renderSyncedMarker(
-        markerAGroup, ptA, 'A', false,
+    renderSyncedMarker(markerAGroup, ptA, 'A', false,
         (dragPt) => { ptA = dragPt; syncUI(); if (routeConfirmed) scheduleLiveRouteRebuild(); },
         (newPt) => { ptA = newPt; updateMarkerLayers(); syncUI(); if (routeConfirmed && ptB) buildRoute(false); debouncedSaveCloudRoute(); }
     );
-    renderSyncedMarker(
-        markerBGroup, ptB, 'B', true,
+    renderSyncedMarker(markerBGroup, ptB, 'B', true,
         (dragPt) => { ptB = dragPt; syncUI(); if (routeConfirmed) scheduleLiveRouteRebuild(); },
         (newPt) => { ptB = newPt; updateMarkerLayers(); syncUI(); if (routeConfirmed && ptA) buildRoute(false); debouncedSaveCloudRoute(); }
     );
@@ -786,15 +784,9 @@ function splitPathAtAntimeridian(path) {
         if (i === 0) { currentSegment.push([currLat, currLon]); continue; }
         const prevLon = normalizeLon(path[i - 1].lon), prevLat = path[i - 1].lat, dLon = currLon - prevLon;
         if (Math.abs(dLon) > 180) {
-            if (prevLon > 0) {
-                const crossLat = prevLat + ((180 - prevLon) / Math.max(0.0001, (180 - prevLon) + (currLon + 180))) * (currLat - prevLat);
-                currentSegment.push([crossLat, 180]); segments.push(currentSegment);
-                currentSegment = [[crossLat, -180], [currLat, currLon]];
-            } else {
-                const crossLat = prevLat + ((prevLon + 180) / Math.max(0.0001, (prevLon + 180) + (180 - currLon))) * (currLat - prevLat);
-                currentSegment.push([crossLat, -180]); segments.push(currentSegment);
-                currentSegment = [[crossLat, 180], [currLat, currLon]];
-            }
+            const crossLat = prevLat + ((prevLon > 0 ? (180 - prevLon) : (prevLon + 180)) / Math.max(0.0001, (prevLon > 0 ? (180 - prevLon) + (currLon + 180) : (prevLon + 180) + (180 - currLon)))) * (currLat - prevLat);
+            currentSegment.push([crossLat, prevLon > 0 ? 180 : -180]); segments.push(currentSegment);
+            currentSegment = [[crossLat, prevLon > 0 ? -180 : 180], [currLat, currLon]];
         } else currentSegment.push([currLat, currLon]);
     }
     if (currentSegment.length > 0) segments.push(currentSegment);
@@ -806,12 +798,9 @@ function update3DPinsAndPaths() {
     const labels = [];
     if (ptA) labels.push({ lat: ptA.lat, lng: ptA.lon, text: 'A', color: '#00F0FF' });
     if (ptB) labels.push({ lat: ptB.lat, lng: ptB.lon, text: 'B', color: '#FF2E38' });
-    myGlobe.labelsData(labels).labelLat('lat').labelLng('lng').labelText('text')
-        .labelSize(1.8).labelDotRadius(0.6).labelColor('color').labelResolution(3).labelAltitude(0.018);
-
+    myGlobe.labelsData(labels).labelLat('lat').labelLng('lng').labelText('text').labelSize(1.8).labelDotRadius(0.6).labelColor('color').labelResolution(3).labelAltitude(0.018);
     if (typeof update3DStormRings === 'function') update3DStormRings();
     if (typeof update3DStormHtmlElements === 'function') update3DStormHtmlElements();
-
     const paths = [];
     if (safeRouteData && fastRouteData) {
         const safeSegs = splitPathAtAntimeridian(safeRouteData.path), fastSegs = splitPathAtAntimeridian(fastRouteData.path);
@@ -824,37 +813,27 @@ function update3DPinsAndPaths() {
         }
     }
     myGlobe.pathsData(paths).pathPoints('coords').pathPointLat(p => p[0]).pathPointLng(p => p[1])
-        .pathColor('color').pathDashLength(0.03).pathDashGap(0.015).pathDashAnimateTime(3500)
-        .pathStroke(2.6).pathAltitude(0.010);
+        .pathColor('color').pathDashLength(0.03).pathDashGap(0.015).pathDashAnimateTime(3500).pathStroke(2.6).pathAltitude(0.010);
 }
 
 function applyCloudRoutePoints(pointA, pointB, autoBuild = true) {
+    isSosRouteActive = false;
     ptA = (pointA && typeof pointA.lat === 'number') ? { lat: Number(pointA.lat), lon: Number(normalizeLon(pointA.lon)) } : null;
     ptB = (pointB && typeof pointB.lat === 'number') ? { lat: Number(pointB.lat), lon: Number(normalizeLon(pointB.lon)) } : null;
     updateMarkerLayers(); syncUI();
-    if (autoBuild && ptA && ptB) {
-        routeConfirmed = true;
-        buildRoute(true);
-    } else {
-        routeConfirmed = false;
-        update3DPinsAndPaths();
-    }
+    if (autoBuild && ptA && ptB) { routeConfirmed = true; buildRoute(true); }
+    else { routeConfirmed = false; stopAndClearRouteTimer(); update3DPinsAndPaths(); }
 }
 
 function handleCoordinateSelect(rawLat, rawLon) {
-    const lat = Math.max(-90, Math.min(90, Number(rawLat).toFixed(4))), lon = Number(normalizeLon(rawLon).toFixed(4));
-    if (!ptA) {
-        ptA = { lat, lon };
-        routeConfirmed = false;
-    } else if (!ptB) {
-        ptB = { lat, lon };
-        routeConfirmed = false;
-    } else {
-        ptA = { lat, lon }; ptB = null;
-        routeConfirmed = false;
-        fastPolylineGroup.clearLayers(); safePolylineGroup.clearLayers();
-        fastRouteData = safeRouteData = null;
-        document.getElementById('routeReport').style.display = 'none';
+    isSosRouteActive = false;
+    const lat = Math.max(-90, Math.min(90, Number(Number(rawLat).toFixed(4)))), lon = Number(normalizeLon(rawLon).toFixed(4));
+    if (!ptA) { ptA = { lat, lon }; routeConfirmed = false; }
+    else if (!ptB) { ptB = { lat, lon }; routeConfirmed = false; }
+    else {
+        ptA = { lat, lon }; ptB = null; routeConfirmed = false;
+        stopAndClearRouteTimer(); fastPolylineGroup.clearLayers(); safePolylineGroup.clearLayers();
+        fastRouteData = safeRouteData = null; document.getElementById('routeReport').style.display = 'none';
     }
     updateMarkerLayers(); syncUI(); update3DPinsAndPaths(); debouncedSaveCloudRoute();
 }
@@ -879,40 +858,98 @@ function getCylindricalRouteBounds() {
 }
 
 window.setPresetRoute = function(lat1, lon1, lat2, lon2) {
-    ptA = null; ptB = null;
+    isSosRouteActive = false; ptA = null; ptB = null;
     handleCoordinateSelect(lat1, lon1); handleCoordinateSelect(lat2, lon2);
-    routeConfirmed = true;
-    buildRoute(false);
-    debouncedSaveCloudRoute();
+    routeConfirmed = true; buildRoute(false); debouncedSaveCloudRoute();
     if (is3DMode && myGlobe) {
         const dLon = ((lon2 - lon1 + 180) % 360 + 360) % 360 - 180;
         myGlobe.pointOfView({ lat: (lat1 + lat2) / 2, lng: normalizeLon(lon1 + dLon / 2), altitude: 1.5 }, 1500);
     } else map.flyToBounds(getCylindricalRouteBounds(), { padding: [50, 50] });
 };
 
-// ============================================================================
-// 9. НАВІГАЦІЙНА МОДЕЛЬ: A* НА СФЕРІ + ANY-ANGLE ЗГЛАДЖУВАННЯ
-// ============================================================================
+// 8.1. SOS ЕКСТРЕНЕ ПЕРЕНАПРАВЛЕННЯ
+function isPointInAnyHazardZone(lat, lon) {
+    for (const z of HAZARD_ZONES) if (isPointInPolygon(lat, lon, z.smoothCoords, z.bbox)) return true;
+    return false;
+}
+
+function findNearestSafeZoneTarget(fromPt) {
+    const ptInStorm = (typeof isPointInAnyActiveStorm === 'function') && isPointInAnyActiveStorm(fromPt.lat, fromPt.lon, 15);
+    let currentSafeZone = null;
+    for (const z of SAFE_ZONES) if (isPointInPolygon(fromPt.lat, fromPt.lon, z.smoothCoords, z.bbox)) { currentSafeZone = z; break; }
+
+    if (currentSafeZone && !ptInStorm) {
+        const localBase = MARS_BASES.find(b => b.zoneId === currentSafeZone.id);
+        const tLat = localBase ? localBase.lat : currentSafeZone.centroid[0];
+        const tLon = localBase ? localBase.lon : currentSafeZone.centroid[1];
+        if (!((typeof isPointInAnyActiveStorm === 'function') && isPointInAnyActiveStorm(tLat, tLon, 20))) {
+            return { zone: currentSafeZone, base: localBase || null, lat: tLat, lon: tLon, distKm: calculateShortestMarsDistance(fromPt.lat, fromPt.lon, tLat, tLon), alreadyInsideSafe: true };
+        }
+    }
+
+    let bestClear = null, bestAny = null;
+    SAFE_ZONES.forEach(z => {
+        const candidates = [];
+        const baseInZone = MARS_BASES.find(b => b.zoneId === z.id);
+        if (baseInZone) candidates.push({ lat: baseInZone.lat, lon: baseInZone.lon, base: baseInZone });
+        candidates.push({ lat: z.centroid[0], lon: z.centroid[1], base: baseInZone || null });
+        const [cLat, cLon] = z.centroid;
+        for (const v of z.smoothCoords) {
+            for (const t of [0.08, 0.18]) candidates.push({ lat: v[0] + (cLat - v[0]) * t, lon: v[1] + (cLon - v[1]) * t, base: baseInZone || null });
+        }
+        for (const cand of candidates) {
+            if (!isPointInPolygon(cand.lat, cand.lon, z.smoothCoords, z.bbox) || isPointInAnyHazardZone(cand.lat, cand.lon)) continue;
+            const distKm = calculateShortestMarsDistance(fromPt.lat, fromPt.lon, cand.lat, cand.lon);
+            const item = { zone: z, base: cand.base, lat: cand.lat, lon: cand.lon, distKm, alreadyInsideSafe: false };
+            if (!bestAny || distKm < bestAny.distKm) bestAny = item;
+            const inStorm = (typeof isPointInAnyActiveStorm === 'function') && isPointInAnyActiveStorm(cand.lat, cand.lon, 25);
+            if (!inStorm && (!bestClear || distKm < bestClear.distKm)) bestClear = item;
+        }
+    });
+    return bestClear || bestAny;
+}
+
+window.triggerSOS = function() {
+    if (!ptA) return showWarning('🆘 SOS: Спочатку встановіть Точку A (ровер) на мапі або оберіть базу!');
+    const target = findNearestSafeZoneTarget(ptA);
+    if (!target) return showWarning('🆘 SOS: Не вдалося знайти безпечну зону!');
+
+    if (!hazardsAvoidanceActive) {
+        hazardsAvoidanceActive = true;
+        const btnH = document.getElementById('btnToggleHazards');
+        if (btnH) { btnH.classList.add('active'); btnH.innerText = 'A* ОБМЕЖЕННЯ: УВІМК'; }
+    }
+    ptB = { lat: Number(target.lat.toFixed(4)), lon: Number(normalizeLon(target.lon).toFixed(4)) };
+    isSosRouteActive = true; activeRouteMode = 'safe'; routeConfirmed = true;
+    updateMarkerLayers(); syncUI(); highlightSelectedZone(target.zone.id);
+    navGridCache = {}; buildRoute(true); debouncedSaveCloudRoute();
+
+    if (is3DMode && myGlobe) {
+        const dLon = ((ptB.lon - ptA.lon + 180) % 360 + 360) % 360 - 180;
+        myGlobe.pointOfView({ lat: (ptA.lat + ptB.lat) / 2, lng: normalizeLon(ptA.lon + dLon / 2), altitude: 1.5 }, 1300);
+    }
+    const distKm = safeRouteData ? Math.round(safeRouteData.totalDist) : Math.round(target.distKm);
+    showWarning(target.alreadyInsideSafe ? `🆘 SOS: Ровер у зоні "${target.zone.name}". Курс до притулку (~${distKm} км).` : `🆘 SOS ЕВАКУАЦІЯ: Перенаправлено до ${target.zone.name} (~${distKm} км).`);
+};
+
+document.getElementById('btnSosTop')?.addEventListener('click', window.triggerSOS);
+document.getElementById('btnSosSidebar')?.addEventListener('click', window.triggerSOS);
+
+// 9. АЛГОРИТМ A* ТА ЧАС З ПОДВОЄННЯМ Х2
 const NAV_DEG = Math.PI / 180, NAV_KM_PER_DEG = MARS_RADIUS_KM * NAV_DEG;
 const NAV_GRAD_BASE_DEG = 0.12, NAV_BUFFER_KM = 15, NAV_SAFE_LIMIT_DEG = 15, NAV_FAST_LIMIT_DEG = 25;
 const NAV_DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1],[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
 
 class FastMinHeap {
     constructor(capacity = 1024) { this.nodes = new Int32Array(capacity); this.costs = new Float64Array(capacity); this.size = 0; }
-    grow() {
-        const cap = this.nodes.length * 2, n = new Int32Array(cap), c = new Float64Array(cap);
-        n.set(this.nodes); c.set(this.costs); this.nodes = n; this.costs = c;
-    }
+    grow() { const cap = this.nodes.length * 2, n = new Int32Array(cap), c = new Float64Array(cap); n.set(this.nodes); c.set(this.costs); this.nodes = n; this.costs = c; }
     push(node, cost) {
         if (this.size === this.nodes.length) this.grow();
         let i = this.size++; this.nodes[i] = node; this.costs[i] = cost;
         while (i > 0) {
             const p = (i - 1) >> 1;
-            if (this.costs[i] < this.costs[p]) {
-                [this.nodes[i], this.nodes[p]] = [this.nodes[p], this.nodes[i]];
-                [this.costs[i], this.costs[p]] = [this.costs[p], this.costs[i]];
-                i = p;
-            } else break;
+            if (this.costs[i] < this.costs[p]) { [this.nodes[i], this.nodes[p]] = [this.nodes[p], this.nodes[i]]; [this.costs[i], this.costs[p]] = [this.costs[p], this.costs[i]]; i = p; }
+            else break;
         }
     }
     pop() {
@@ -922,20 +959,14 @@ class FastMinHeap {
         let i = 0; const half = this.size >> 1;
         while (i < half) {
             const l = (i << 1) + 1, r = l + 1, best = (r < this.size && this.costs[r] < this.costs[l]) ? r : l;
-            if (this.costs[best] < this.costs[i]) {
-                [this.nodes[i], this.nodes[best]] = [this.nodes[best], this.nodes[i]];
-                [this.costs[i], this.costs[best]] = [this.costs[best], this.costs[i]];
-                i = best;
-            } else break;
+            if (this.costs[best] < this.costs[i]) { [this.nodes[i], this.nodes[best]] = [this.nodes[best], this.nodes[i]]; [this.costs[i], this.costs[best]] = [this.costs[best], this.costs[i]]; i = best; }
+            else break;
         }
         return top;
     }
 }
 
-function navToVec(lat, lon) {
-    const la = lat * NAV_DEG, lo = lon * NAV_DEG, c = Math.cos(la);
-    return [c * Math.cos(lo), c * Math.sin(lo), Math.sin(la)];
-}
+function navToVec(lat, lon) { const la = lat * NAV_DEG, lo = lon * NAV_DEG, c = Math.cos(la); return [c * Math.cos(lo), c * Math.sin(lo), Math.sin(la)]; }
 
 function makeGreatCircle(lat1, lon1, lat2, lon2) {
     const p1 = navToVec(lat1, lon1), p2 = navToVec(lat2, lon2);
@@ -953,7 +984,6 @@ function makeGreatCircle(lat1, lon1, lat2, lon2) {
 }
 
 let navGridCache = {};
-
 function buildTerrainGrid(startPt, endPt, padScale = 1) {
     const shortestDLon = ((endPt.lon - startPt.lon + 180) % 360 + 360) % 360 - 180, endLonU = startPt.lon + shortestDLon;
     const latLo = Math.min(startPt.lat, endPt.lat), latHi = Math.max(startPt.lat, endPt.lat);
@@ -968,8 +998,7 @@ function buildTerrainGrid(startPt, endPt, padScale = 1) {
     const step = Math.max(0.12, Math.max(latRange, lonRange) / 240);
     const rows = Math.ceil(latRange / step) + 1, cols = Math.ceil(lonRange / step) + 1;
     const latStep = latRange / (rows - 1), lonStep = lonRange / (cols - 1), total = rows * cols;
-    const cellKm = Math.max(latStep, lonStep) * NAV_KM_PER_DEG;
-    const stormSafetyMarginKm = Math.max(55, cellKm * 1.8);
+    const cellKm = Math.max(latStep, lonStep) * NAV_KM_PER_DEG, stormSafetyMarginKm = Math.max(55, cellKm * 1.8);
 
     const latGrid = new Float64Array(rows), lonGrid = new Float64Array(cols);
     for (let r = 0; r < rows; r++) latGrid[r] = minLat + r * latStep;
@@ -993,7 +1022,6 @@ function buildTerrainGrid(startPt, endPt, padScale = 1) {
             for (const z of SAFE_ZONES) { if (isPointInPolygon(lat, lonN, z.smoothCoords, z.bbox)) { zoneS[idx] = 1; break; } }
         }
     }
-
     const m = Math.max(1, Math.min(3, Math.ceil(NAV_BUFFER_KM / cellKm))), tmp = new Uint8Array(total), near = new Uint8Array(total);
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
         let v = 0; for (let k = Math.max(0, c - m); k <= Math.min(cols - 1, c + m) && !v; k++) v = insideH[r * cols + k]; tmp[r * cols + c] = v;
@@ -1012,170 +1040,16 @@ function buildTerrainGrid(startPt, endPt, padScale = 1) {
 }
 
 function navSlopeFactor(thetaDeg, mode) {
-    if (mode === 'safe') {
-        let f = 1 + (thetaDeg / 7) ** 2;
-        if (thetaDeg > NAV_SAFE_LIMIT_DEG) f += 40 + 25 * (thetaDeg - NAV_SAFE_LIMIT_DEG);
-        return f;
-    }
-    let f = 1 + (thetaDeg / 14) ** 2;
-    if (thetaDeg > NAV_FAST_LIMIT_DEG) f += 40 + 25 * (thetaDeg - NAV_FAST_LIMIT_DEG);
-    return f;
+    if (mode === 'safe') { let f = 1 + (thetaDeg / 7) ** 2; if (thetaDeg > NAV_SAFE_LIMIT_DEG) f += 40 + 25 * (thetaDeg - NAV_SAFE_LIMIT_DEG); return f; }
+    let f = 1 + (thetaDeg / 14) ** 2; if (thetaDeg > NAV_FAST_LIMIT_DEG) f += 40 + 25 * (thetaDeg - NAV_FAST_LIMIT_DEG); return f;
 }
-
 function navZoneTerms(zh, zs, mode) {
     if (mode === 'safe') return [zh === 2 ? 50 : (zh === 1 ? 1.5 : 0), zs ? 0.8 : 1.0];
     return [zh === 2 ? 0.15 : 0, 1.0];
 }
-
 function navEdgeCost(distKm, h1, h2, g1, g2, add, mul, mode) {
     const theta = Math.atan(Math.max(Math.abs(h2 - h1) / (distKm * 1000), 0.5 * (g1 + g2))) / NAV_DEG;
     return distKm * (navSlopeFactor(theta, mode) + add) * mul;
-}
-
-function planGridPath(grid, startPt, endPt, mode) {
-    const { rows, cols, total, latGrid, lonGrid, elev, grad, zoneH, zoneS, distTbl, minLat, minLon, latStep, lonStep } = grid;
-    const NDIR = NAV_DIRS.length;
-    const nearestCell = (lat, lonU) => [Math.max(0, Math.min(rows - 1, Math.round((lat - minLat) / latStep))), Math.max(0, Math.min(cols - 1, Math.round((lonU - minLon) / lonStep)))];
-    const [startR, startC] = nearestCell(startPt.lat, startPt.lon), [endR, endC] = nearestCell(endPt.lat, grid.endLonU);
-    const startIdx = startR * cols + startC, endIdx = endR * cols + endC;
-    if (startIdx === endIdx) return [];
-
-    const zAdd = new Float32Array(total), zMul = new Float32Array(total);
-    for (let i = 0; i < total; i++) { const t = navZoneTerms(zoneH[i], zoneS[i], mode); zAdd[i] = t[0]; zMul[i] = t[1]; }
-    const minF = mode === 'safe' ? 0.8 : 1.0, hArr = new Float32Array(total);
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) hArr[r * cols + c] = minF * calculateMarsDistance(latGrid[r], lonGrid[c], latGrid[endR], lonGrid[endC]);
-
-    const gScore = new Float64Array(total).fill(Infinity), cameFrom = new Int32Array(total).fill(-1), closed = new Uint8Array(total), heap = new FastMinHeap(8192);
-    gScore[startIdx] = 0; heap.push(startIdx, hArr[startIdx]);
-    let found = false;
-    while (heap.size > 0) {
-        const cur = heap.pop();
-        if (cur === -1) break;
-        if (closed[cur]) continue;
-        closed[cur] = 1;
-        if (cur === endIdx) { found = true; break; }
-        const cr = (cur / cols) | 0, cc = cur - cr * cols;
-        for (let k = 0; k < NDIR; k++) {
-            const nr = cr + NAV_DIRS[k][0], nc = cc + NAV_DIRS[k][1];
-            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-            const nIdx = nr * cols + nc;
-            if (closed[nIdx]) continue;
-            const distKm = distTbl[cr * NDIR + k];
-            let add, mul;
-            if (k < 8) { add = 0.5 * (zAdd[cur] + zAdd[nIdx]); mul = 0.5 * (zMul[cur] + zMul[nIdx]); }
-            else {
-                const dr = NAV_DIRS[k][0], dc = NAV_DIRS[k][1];
-                const m1 = Math.abs(dr) === 2 ? (cr + dr / 2) * cols + cc : cr * cols + (cc + dc / 2);
-                const m2 = Math.abs(dr) === 2 ? (cr + dr / 2) * cols + (cc + dc) : (cr + dr) * cols + (cc + dc / 2);
-                add = 0.25 * (zAdd[cur] + zAdd[m1] + zAdd[m2] + zAdd[nIdx]);
-                mul = 0.25 * (zMul[cur] + zMul[m1] + zMul[m2] + zMul[nIdx]);
-            }
-            const tentG = gScore[cur] + navEdgeCost(distKm, elev[cur], elev[nIdx], grad[cur], grad[nIdx], add, mul, mode);
-            if (tentG < gScore[nIdx]) { gScore[nIdx] = tentG; cameFrom[nIdx] = cur; heap.push(nIdx, tentG + hArr[nIdx]); }
-        }
-    }
-
-    let pIdx = found ? endIdx : -1;
-    if (pIdx === -1) {
-        let best = Infinity;
-        for (let i = 0; i < total; i++) if (closed[i]) {
-            const r = (i / cols) | 0, c = i - r * cols, dd = Math.hypot(r - endR, c - endC);
-            if (dd < best) { best = dd; pIdx = i; }
-        }
-    }
-    const nodes = [];
-    for (let cur = pIdx; cur !== -1; cur = cameFrom[cur]) {
-        const r = (cur / cols) | 0, c = cur - r * cols;
-        nodes.push({ lat: latGrid[r], lon: lonGrid[c] });
-        if (cur === startIdx) break;
-    }
-    nodes.reverse();
-    return nodes;
-}
-
-function navSampleTerrain(grid, lat, lonU, mode, out) {
-    const { rows, cols, minLat, minLon, latStep, lonStep, elev, grad, zoneH, zoneS } = grid;
-    const fr = (lat - minLat) / latStep, fc = (lonU - minLon) / lonStep;
-    const r0 = Math.max(0, Math.min(rows - 2, Math.floor(fr))), c0 = Math.max(0, Math.min(cols - 2, Math.floor(fc)));
-    const tr = Math.max(0, Math.min(1, fr - r0)), tc = Math.max(0, Math.min(1, fc - c0));
-    const i00 = r0 * cols + c0, i01 = i00 + 1, i10 = i00 + cols, i11 = i10 + 1;
-    const w00 = (1 - tr) * (1 - tc), w01 = (1 - tr) * tc, w10 = tr * (1 - tc), w11 = tr * tc;
-    out.h = elev[i00] * w00 + elev[i01] * w01 + elev[i10] * w10 + elev[i11] * w11;
-    out.g = grad[i00] * w00 + grad[i01] * w01 + grad[i10] * w10 + grad[i11] * w11;
-    const near = tr < 0.5 ? (tc < 0.5 ? i00 : i01) : (tc < 0.5 ? i10 : i11);
-    const t = navZoneTerms(zoneH[near], zoneS[near], mode);
-    out.add = t[0]; out.mul = t[1];
-    return out;
-}
-
-function navSegmentCost(grid, a, b, mode) {
-    const gc = makeGreatCircle(a.lat, a.lon, b.lat, b.lon);
-    if (gc.distKm < 1e-6) return 0;
-    const n = Math.max(1, Math.ceil(gc.distKm / Math.max(1.5, grid.cellKm * 0.5))), stepKm = gc.distKm / n;
-    let prev = navSampleTerrain(grid, a.lat, a.lon, mode, {}), total = 0;
-    for (let k = 1; k <= n; k++) {
-        const p = gc.at(k / n), cur = navSampleTerrain(grid, p.lat, p.lon, mode, {});
-        total += navEdgeCost(stepKm, prev.h, cur.h, prev.g, cur.g, 0.5 * (prev.add + cur.add), 0.5 * (prev.mul + cur.mul), mode);
-        prev = cur;
-    }
-    return total;
-}
-
-function smoothNavPath(grid, nodes, mode) {
-    if (nodes.length <= 2) return nodes;
-    const prefix = [0];
-    for (let i = 1; i < nodes.length; i++) prefix.push(prefix[i - 1] + navSegmentCost(grid, nodes[i - 1], nodes[i], mode));
-    const out = [nodes[0]];
-    let i = 0;
-    while (i < nodes.length - 1) {
-        let best = i + 1;
-        for (let j = i + 2; j < nodes.length && j <= i + 40; j++) {
-            if (navSegmentCost(grid, nodes[i], nodes[j], mode) <= (prefix[j] - prefix[i]) * 1.002) best = j;
-            else if (j - best >= 6) break;
-        }
-        out.push(nodes[best]); i = best;
-    }
-    return out;
-}
-
-function resampleNavPath(nodes) {
-    const segs = []; let L = 0;
-    for (let i = 1; i < nodes.length; i++) {
-        const gc = makeGreatCircle(nodes[i - 1].lat, nodes[i - 1].lon, nodes[i].lat, nodes[i].lon);
-        segs.push({ gc, start: L }); L += gc.distKm;
-    }
-    const n = Math.max(60, Math.min(600, Math.ceil(L / 3))) + 1, pts = [];
-    let si = 0;
-    for (let i = 0; i < n; i++) {
-        const s = L * i / (n - 1);
-        while (si < segs.length - 1 && s > segs[si].start + segs[si].gc.distKm) si++;
-        const seg = segs[si], t = seg.gc.distKm > 1e-9 ? Math.max(0, Math.min(1, (s - seg.start) / seg.gc.distKm)) : 0;
-        const p = seg.gc.at(t);
-        pts.push({ lat: p.lat, lonU: p.lon });
-    }
-    pts[0] = { lat: nodes[0].lat, lonU: nodes[0].lon };
-    pts[n - 1] = { lat: nodes[nodes.length - 1].lat, lonU: nodes[nodes.length - 1].lon };
-    return { pts, L };
-}
-
-function getNavGrid(startPt, endPt, padScale) {
-    const stormKey = (typeof getActiveStormCacheKey === 'function') ? getActiveStormCacheKey() : '';
-    const key = `${startPt.lat},${startPt.lon}|${endPt.lat},${endPt.lon}|${hazardsAvoidanceActive}|${stormKey}`;
-    if (navGridCache.key !== key) navGridCache = { key, grids: {} };
-    if (!navGridCache.grids[padScale]) navGridCache.grids[padScale] = buildTerrainGrid(startPt, endPt, padScale);
-    return navGridCache.grids[padScale];
-}
-
-function runRealTerrainAStar(startPt, endPt, mode) {
-    let best = computeNavRoute(startPt, endPt, mode, 1);
-    if (mode === 'safe' && hazardsAvoidanceActive && best.hazardHits > 0) {
-        for (const scale of [2.2, 4]) {
-            const alt = computeNavRoute(startPt, endPt, mode, scale);
-            if (alt.hazardHits < best.hazardHits || (alt.hazardHits === best.hazardHits && alt.totalDist < best.totalDist - 1)) best = alt;
-            if (best.hazardHits === 0) break;
-        }
-    }
-    return best;
 }
 
 function computeNavRoute(startPt, endPt, mode, padScale) {
@@ -1186,7 +1060,41 @@ function computeNavRoute(startPt, endPt, mode, padScale) {
     if (directKm > 0.5) nodes = smoothNavPath(grid, [A, ...planGridPath(grid, A, B, mode), B], mode);
 
     const { pts, L } = resampleNavPath(nodes), spacing = L / Math.max(1, pts.length - 1);
-    const path = pts.map(p => { const lon = normalizeLon(p.lonU); return { lat: p.lat, lon, unwrappedLon: p.lonU, alt: getMolaElevation(p.lat, lon) }; });
+    const ROVER_BASE_SPEED_KMH = 30;
+    const getHazardAt = (lat, lon) => {
+        for (const z of HAZARD_ZONES) if (isPointInPolygon(lat, lon, z.smoothCoords, z.bbox)) return { inHazard: true, name: z.name };
+        if (typeof isPointInAnyActiveStorm === 'function' && isPointInAnyActiveStorm(lat, lon, 0)) return { inHazard: true, name: 'Активна пилова буря' };
+        return { inHazard: false, name: null };
+    };
+
+    const path = pts.map(p => {
+        const lon = normalizeLon(p.lonU);
+        const haz = getHazardAt(p.lat, lon);
+        return {
+            lat: p.lat, lon, unwrappedLon: p.lonU, alt: getMolaElevation(p.lat, lon),
+            inHazard: haz.inHazard, hazardName: haz.name,
+            cumDistKm: 0, cumNormalHours: 0, cumHazardBaseHours: 0, cumHazardHours: 0, cumHours: 0
+        };
+    });
+
+    let normalHours = 0, hazardBaseHours = 0, hazardDoubledHours = 0, totalHours = 0, hazardDistKm = 0;
+    for (let i = 1; i < path.length; i++) {
+        const segBaseHours = spacing / ROVER_BASE_SPEED_KMH;
+        if (path[i].inHazard) {
+            hazardDistKm += spacing;
+            hazardBaseHours += segBaseHours;
+            hazardDoubledHours += segBaseHours * 2;
+            totalHours += segBaseHours * 2;
+        } else {
+            normalHours += segBaseHours;
+            totalHours += segBaseHours;
+        }
+        path[i].cumDistKm = path[i - 1].cumDistKm + spacing;
+        path[i].cumNormalHours = normalHours;
+        path[i].cumHazardBaseHours = hazardBaseHours;
+        path[i].cumHazardHours = hazardDoubledHours;
+        path[i].cumHours = totalHours;
+    }
 
     let asc = 0, desc = 0;
     for (let i = 1; i < path.length; i++) { const diff = path[i].alt - path[i - 1].alt; if (diff > 0) asc += diff; else desc -= diff; }
@@ -1214,16 +1122,17 @@ function computeNavRoute(startPt, endPt, mode, padScale) {
         if (!hazardsAvoidanceActive) diagnosis = `ОБХІД ЗОН ВИМКНЕНО: маршрут оптимізовано лише за рельєфом. Макс. нахил ${peakSlope.toFixed(1)}°.`;
         else if (hazardHits === 0) diagnosis = `БЕЗПЕЧНИЙ МАРШРУТ: небезпечні зони та рухомі бурі оминуто. Макс. нахил ${peakSlope.toFixed(1)}°, подовження до ортодромії +${detourPct.toFixed(0)}%.`;
         else diagnosis = stormHits > 0
-            ? `⚠️ УВАГА: маршрут перетинає рухому пилову бурю (≈ ${Math.round(stormHits * spacing)} км). Рекомендовано змінити курс або перечекати.`
-            : `УВАГА: повний обхід неможливий — траверс небезпечних зон ≈ ${Math.round(hazardKm)} км. Обрано шлях з найменшим ризиком.`;
-    } else diagnosis = `ШВИДКИЙ МАРШРУТ: мінімальні витрати без обходу зон. Макс. нахил ${peakSlope.toFixed(1)}°, у небезпечних зонах ≈ ${Math.round(hazardKm)} км.`;
+            ? `⚠️ УВАГА: маршрут перетинає рухому пилову бурю (≈ ${Math.round(stormHits * spacing)} км). Час у небезпеці ×2.`
+            : `УВАГА: повний обхід неможливий — траверс небезпечних зон ≈ ${Math.round(hazardKm)} км (час у зоні ×2).`;
+    } else diagnosis = `ШВИДКИЙ МАРШРУТ: мінімальні витрати без обходу зон. Макс. нахил ${peakSlope.toFixed(1)}°, у небезпечних зонах ≈ ${Math.round(hazardKm)} км (час у зоні ×2).`;
 
-    return { path, totalDist: L, maxSlope: peakSlope, totalAsc: asc, totalDesc: desc, safety: safetyScore, scanDiagnosis: diagnosis, hazardHits };
+    return {
+        path, totalDist: L, hazardDistKm, totalHours, normalHours, hazardBaseHours, hazardDoubledHours,
+        maxSlope: peakSlope, totalAsc: asc, totalDesc: desc, safety: safetyScore, scanDiagnosis: diagnosis, hazardHits
+    };
 }
 
-// ============================================================================
-// 10. ВІДОБРАЖЕННЯ МАРШРУТУ НА КАРТАХ
-// ============================================================================
+// 10. ВІДОБРАЖЕННЯ ТА ТАЙМЕР В БОКОВОМУ МЕНЮ
 function attachRouteTooltip(polyline, modeName, color) {
     polyline.bindTooltip('', { sticky: true, className: 'mars-tooltip' });
     polyline.on('mousemove', (e) => {
@@ -1243,6 +1152,147 @@ function renderMultiWorldPolyline(group, segments, styleOptions, tooltipModeName
     });
 }
 
+function formatMarsDuration(hours) {
+    const totalMin = Math.max(0, Math.round(hours * 60)), h = Math.floor(totalMin / 60), m = totalMin % 60;
+    return h === 0 ? `${m} хв` : `${h} год ${String(m).padStart(2, '0')} хв`;
+}
+
+function formatTimerHMS(hours) {
+    const totalSec = Math.max(0, Math.round(hours * 3600)), h = Math.floor(totalSec / 3600), m = Math.floor((totalSec % 3600) / 60), s = totalSec % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+const routeTimerState = { progress: 0, running: false, intervalId: null, lastTick: 0, currentPt: null };
+function getActiveRouteObj() { return activeRouteMode === 'fast' ? fastRouteData : safeRouteData; }
+
+function sampleRouteAtProgress(data, progress) {
+    if (!data || !data.path || data.path.length === 0) return null;
+    if (data.path.length === 1) return data.path[0];
+    const p = Math.max(0, Math.min(1, progress)), exactIdx = p * (data.path.length - 1);
+    const i0 = Math.floor(exactIdx), i1 = Math.min(data.path.length - 1, i0 + 1), frac = exactIdx - i0;
+    const a = data.path[i0], b = data.path[i1];
+    const inHazard = frac < 0.5 ? a.inHazard : b.inHazard;
+    return {
+        cumNormalHours: a.cumNormalHours + (b.cumNormalHours - a.cumNormalHours) * frac,
+        cumHazardBaseHours: a.cumHazardBaseHours + (b.cumHazardBaseHours - a.cumHazardBaseHours) * frac,
+        cumHazardHours: a.cumHazardHours + (b.cumHazardHours - a.cumHazardHours) * frac,
+        cumHours: a.cumHours + (b.cumHours - a.cumHours) * frac,
+        inHazard, hazardName: inHazard ? (b.hazardName || a.hazardName) : null
+    };
+}
+
+function buildTimerTrackGradient(path) {
+    if (!path || path.length < 2) return '#E2E8F0';
+    const stops = []; let prevHaz = path[0].inHazard, startPct = 0;
+    for (let i = 1; i < path.length; i++) {
+        const pct = (i / (path.length - 1)) * 100;
+        if (path[i].inHazard !== prevHaz || i === path.length - 1) {
+            stops.push(`${prevHaz ? 'rgba(255, 46, 56, 0.38)' : 'rgba(16, 185, 129, 0.22)'} ${startPct.toFixed(1)}% ${pct.toFixed(1)}%`);
+            prevHaz = path[i].inHazard; startPct = pct;
+        }
+    }
+    return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
+function updateRouteTimerUI() {
+    const data = getActiveRouteObj();
+    const box = document.getElementById('routeTimerBox'), badge = document.getElementById('timerMultBadge');
+    const clock = document.getElementById('timerElapsed'), total = document.getElementById('timerTotal');
+    const status = document.getElementById('timerZoneStatus'), breakdown = document.getElementById('timerBreakdown');
+    const fill = document.getElementById('timerProgressFill'), btnPlay = document.getElementById('btnTimerPlayPause');
+    if (!data || !box) return;
+
+    const pt = sampleRouteAtProgress(data, routeTimerState.progress);
+    routeTimerState.currentPt = pt;
+    const isX2 = Boolean(pt && pt.inHazard && routeTimerState.progress < 1);
+    box.classList.toggle('is-hazard', isX2);
+    if (badge) { badge.classList.toggle('is-x2', isX2); badge.innerText = isX2 ? '×2 НЕБЕЗПЕЧНА ЗОНА' : '×1 ШТАТНО'; }
+    if (clock && pt) clock.innerText = formatTimerHMS(pt.cumHours);
+    if (total) total.innerText = `/ ${formatTimerHMS(data.totalHours)}`;
+    if (fill) fill.style.width = `${(routeTimerState.progress * 100).toFixed(1)}%`;
+    if (breakdown && pt) {
+        breakdown.innerHTML = `Звичайний: <b>${formatTimerHMS(pt.cumNormalHours)}</b> · Небезпека: <b>${formatTimerHMS(pt.cumHazardBaseHours)} × 2 = ${formatTimerHMS(pt.cumHazardHours)}</b>`;
+    }
+    if (status) {
+        if (routeTimerState.progress >= 1) status.innerText = '✅ Маршрут завершено (Точка B)';
+        else if (isX2) status.innerText = `⚠️ ×2: ${pt.hazardName || 'Небезпечна зона'}`;
+        else status.innerText = '🟢 Штатний рух (×1)';
+    }
+    if (btnPlay) btnPlay.innerText = routeTimerState.progress >= 1 ? '▶ ЗАНОВО' : (routeTimerState.running ? '⏸ ПАУЗА' : '▶ СТАРТ');
+}
+
+function stepRouteTimer() {
+    if (!routeTimerState.running) return;
+    const data = getActiveRouteObj();
+    if (!data) return pauseRouteTimer();
+    const now = performance.now();
+    const dtSec = Math.min(0.25, Math.max(0, (now - routeTimerState.lastTick) / 1000));
+    routeTimerState.lastTick = now;
+    routeTimerState.progress = Math.min(1, routeTimerState.progress + dtSec * 0.045);
+    updateRouteTimerUI();
+    if (routeTimerState.progress >= 1) pauseRouteTimer();
+}
+
+function startRouteTimer(reset = false) {
+    const data = getActiveRouteObj();
+    if (!data) return;
+    if (reset || routeTimerState.progress >= 1) routeTimerState.progress = 0;
+    const track = document.getElementById('timerProgressTrack');
+    if (track) track.style.background = buildTimerTrackGradient(data.path);
+    routeTimerState.running = true; routeTimerState.lastTick = performance.now();
+    if (routeTimerState.intervalId) clearInterval(routeTimerState.intervalId);
+    routeTimerState.intervalId = setInterval(stepRouteTimer, 60);
+    updateRouteTimerUI();
+}
+
+function pauseRouteTimer() {
+    routeTimerState.running = false;
+    if (routeTimerState.intervalId) { clearInterval(routeTimerState.intervalId); routeTimerState.intervalId = null; }
+    updateRouteTimerUI();
+}
+
+function stopAndClearRouteTimer() {
+    routeTimerState.running = false; routeTimerState.progress = 0; routeTimerState.currentPt = null;
+    if (routeTimerState.intervalId) { clearInterval(routeTimerState.intervalId); routeTimerState.intervalId = null; }
+}
+
+document.getElementById('btnTimerPlayPause')?.addEventListener('click', () => {
+    if (routeTimerState.running) pauseRouteTimer(); else startRouteTimer(routeTimerState.progress >= 1);
+});
+document.getElementById('btnTimerReset')?.addEventListener('click', () => startRouteTimer(true));
+
+// КАЛЬКУЛЯТОР ПРИПАСІВ
+let supplyCrewCount = 2;
+function updateSupplyCalculator() {
+    const data = getActiveRouteObj();
+    if (!data) return;
+    const crew = Math.max(1, Math.min(8, supplyCrewCount));
+    const useReserve = document.getElementById('chkSupplyReserve')?.checked ?? true;
+    const reserveMult = useReserve ? 1.15 : 1.0;
+
+    const o2Kg = data.totalHours * crew * 0.035 * reserveMult;
+    const o2Liters = Math.round(o2Kg * 714);
+    const baseFuel = data.totalDist * 0.35, hazardFuel = (data.hazardDistKm || 0) * 0.175, climbFuel = (data.totalAsc || 0) * 0.01;
+    const fuelLiters = Math.ceil((baseFuel + hazardFuel + climbFuel) * reserveMult);
+    const drinkWater = data.totalHours * crew * 0.105 * reserveMult;
+    const techWater = (data.totalHours * crew * 0.065 + (data.hazardDistKm || 0) * 0.005) * reserveMult;
+    const totalWater = drinkWater + techWater;
+
+    const crewDisp = document.getElementById('supplyCrewVal'); if (crewDisp) crewDisp.innerText = crew;
+    const elO2 = document.getElementById('supplyO2Val'), elO2Sub = document.getElementById('supplyO2Sub');
+    if (elO2) elO2.innerText = `${o2Kg.toFixed(2)} кг`; if (elO2Sub) elO2Sub.innerText = `≈ ${o2Liters.toLocaleString('uk-UA')} л O₂ (${crew} ос.)`;
+    const elFuel = document.getElementById('supplyFuelVal'), elFuelSub = document.getElementById('supplyFuelSub');
+    if (elFuel) elFuel.innerText = `${fuelLiters.toLocaleString('uk-UA')} л`;
+    if (elFuelSub) elFuelSub.innerText = data.hazardDistKm > 1 ? 'База + підйом + небезпека' : 'База 0.35 л/км + підйом';
+    const elWater = document.getElementById('supplyWaterVal'), elWaterSub = document.getElementById('supplyWaterSub');
+    if (elWater) elWater.innerText = `${totalWater.toFixed(1)} л`;
+    if (elWaterSub) elWaterSub.innerText = `Питна: ${drinkWater.toFixed(1)} л · Технічна/охолодження: ${techWater.toFixed(1)} л`;
+}
+
+document.getElementById('btnCrewMinus')?.addEventListener('click', () => { if (supplyCrewCount > 1) { supplyCrewCount--; updateSupplyCalculator(); } });
+document.getElementById('btnCrewPlus')?.addEventListener('click', () => { if (supplyCrewCount < 8) { supplyCrewCount++; updateSupplyCalculator(); } });
+document.getElementById('chkSupplyReserve')?.addEventListener('change', updateSupplyCalculator);
+
 function buildRoute(fitCamera = true) {
     if (!ptA || !ptB) return;
     safePolylineGroup.clearLayers(); fastPolylineGroup.clearLayers();
@@ -1257,8 +1307,9 @@ function buildRoute(fitCamera = true) {
 
     updateSeparateElevationCards();
     if (fitCamera && !is3DMode) map.fitBounds(getCylindricalRouteBounds(), { padding: [50, 50] });
-    document.getElementById('routeReport').style.display = 'block';
+    const reportEl = document.getElementById('routeReport'); reportEl.style.display = 'block';
     setActiveRoute(activeRouteMode || 'safe');
+    if (fitCamera) reportEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     if (typeof checkStormRouteCollisions === 'function') checkStormRouteCollisions();
 }
 
@@ -1267,8 +1318,7 @@ if (btnBuildRouteEl) {
     btnBuildRouteEl.innerText = 'ПІДТВЕРДИТИ';
     btnBuildRouteEl.onclick = () => {
         if (!ptA || !ptB) return alert("Оберіть Точку А (старт) та Точку В (фініш) на мапі!");
-        routeConfirmed = true;
-        buildRoute(true);
+        isSosRouteActive = false; routeConfirmed = true; buildRoute(true);
     };
 }
 
@@ -1279,12 +1329,14 @@ function updateSeparateElevationCards() {
     document.getElementById('elevSafeMax').innerText = `${sMax > 0 ? '+' : ''}${sMax} м`;
     document.getElementById('elevSafeDiff').innerText = `Δ ${sMax - sMin} м`;
     document.getElementById('elevSafeClimb').innerText = `+${Math.round(safeRouteData.totalAsc)} / -${Math.round(safeRouteData.totalDesc)} м`;
+    const elSafeTime = document.getElementById('elevSafeTime'); if (elSafeTime) elSafeTime.innerText = formatMarsDuration(safeRouteData.totalHours);
 
     const fAlts = fastRouteData.path.map(p => p.alt), fMin = Math.min(...fAlts), fMax = Math.max(...fAlts);
     document.getElementById('elevFastMin').innerText = `${fMin > 0 ? '+' : ''}${fMin} м`;
     document.getElementById('elevFastMax').innerText = `${fMax > 0 ? '+' : ''}${fMax} м`;
     document.getElementById('elevFastDiff').innerText = `Δ ${fMax - fMin} м`;
     document.getElementById('elevFastClimb').innerText = `+${Math.round(fastRouteData.totalAsc)} / -${Math.round(fastRouteData.totalDesc)} м`;
+    const elFastTime = document.getElementById('elevFastTime'); if (elFastTime) elFastTime.innerText = formatMarsDuration(fastRouteData.totalHours);
 }
 
 window.setActiveRoute = function(mode) {
@@ -1303,14 +1355,21 @@ window.setActiveRoute = function(mode) {
     document.getElementById('metricSlope').innerText = `${data.maxSlope.toFixed(1)}°`;
     document.getElementById('metricClimb').innerText = `+${Math.round(data.totalAsc)} / -${Math.round(data.totalDesc)} м`;
     const sEl = document.getElementById('metricSafety');
-    sEl.innerText = `${data.safety}%`;
-    sEl.style.color = data.safety >= 75 ? '#00FFAA' : (data.safety > 40 ? '#FFD700' : '#FF2E38');
-    document.getElementById('scannerDiagnosis').innerText = data.scanDiagnosis;
+    sEl.innerText = `${data.safety}%`; sEl.style.color = data.safety >= 75 ? '#00FFAA' : (data.safety > 40 ? '#FFD700' : '#FF2E38');
+
+    const elTime = document.getElementById('metricTime'), elTimePenalty = document.getElementById('metricTimePenalty'), elTimeNote = document.getElementById('metricTimeNote');
+    if (elTime) elTime.innerText = formatMarsDuration(data.totalHours);
+    if (elTimePenalty) elTimePenalty.style.display = data.hazardBaseHours > 0.01 ? 'inline-block' : 'none';
+    if (elTimeNote) {
+        elTimeNote.innerText = data.hazardBaseHours > 0.01
+            ? `Звичайний: ${formatMarsDuration(data.normalHours)} + Небезпека: ${formatMarsDuration(data.hazardBaseHours)} × 2 = ${formatMarsDuration(data.hazardDoubledHours)}`
+            : 'Без затримок у небезпечних зонах (×1)';
+    }
+    const diagPrefix = isSosRouteActive ? '🆘 [SOS ПЕРЕНАПРАВЛЕННЯ] ' : '';
+    document.getElementById('scannerDiagnosis').innerText = diagPrefix + data.scanDiagnosis;
     document.getElementById('scannerDiagnosis').style.borderColor = data.safety < 50 ? '#FF2E38' : 'rgba(0, 255, 170, 0.3)';
 
-    resetChartHoverReadout();
-    update3DPinsAndPaths();
-    renderDualElevationChart(-1);
+    resetChartHoverReadout(); startRouteTimer(true); updateSupplyCalculator(); update3DPinsAndPaths(); renderDualElevationChart(-1);
 };
 
 function resetChartHoverReadout() {
@@ -1321,21 +1380,19 @@ function resetChartHoverReadout() {
 }
 
 document.getElementById('btnClearRoute').onclick = () => {
+    stopAndClearRouteTimer();
     markerAGroup.clearLayers(); markerBGroup.clearLayers(); fastPolylineGroup.clearLayers(); safePolylineGroup.clearLayers();
     currentSelectedZoneId = null; selectedZoneGroup.clearLayers();
     if (safeHoverMarker && map.hasLayer(safeHoverMarker)) map.removeLayer(safeHoverMarker);
     if (fastHoverMarker && map.hasLayer(fastHoverMarker)) map.removeLayer(fastHoverMarker);
     ptA = ptB = fastRouteData = safeRouteData = safeHoverMarker = fastHoverMarker = null;
-    routeConfirmed = false;
-    syncUI(); update3DPinsAndPaths();
-    document.getElementById('routeReport').style.display = 'none';
+    routeConfirmed = false; isSosRouteActive = false;
+    syncUI(); update3DPinsAndPaths(); document.getElementById('routeReport').style.display = 'none';
     if (typeof checkStormRouteCollisions === 'function') checkStormRouteCollisions();
     debouncedSaveCloudRoute();
 };
 
-// ============================================================================
-// 11. ГРАФІК ПРОФІЛЮ ВИСОТ
-// ============================================================================
+// 11. ГРАФІК ВИСОТ
 function renderDualElevationChart(activeHoverRatio = -1) {
     if (!safeRouteData || !fastRouteData) return;
     const cvs = document.getElementById('elevationCanvas'), ctx = cvs.getContext('2d');
@@ -1360,12 +1417,10 @@ function renderDualElevationChart(activeHoverRatio = -1) {
             const x = padLeft + (i / (pts.length - 1)) * w, y = padTop + h - ((pt.alt - minAlt) / range) * h;
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = isActive ? activeColor : dimColor;
-        ctx.lineWidth = isActive ? 2.6 : 1.6;
+        ctx.strokeStyle = isActive ? activeColor : dimColor; ctx.lineWidth = isActive ? 2.6 : 1.6;
         if (!isActive) ctx.setLineDash([4, 3]);
         ctx.stroke(); ctx.setLineDash([]);
     };
-
     drawCurve(fastP, activeRouteMode === 'fast', '#FF2E38', 'rgba(255, 46, 56, 0.55)');
     drawCurve(safeP, activeRouteMode === 'safe', '#00FFAA', 'rgba(0, 255, 170, 0.55)');
 
@@ -1385,18 +1440,14 @@ cvs.addEventListener('mousemove', (e) => {
     if (!safeRouteData || !fastRouteData) return;
     const rect = cvs.getBoundingClientRect(), padLeft = 52, w = cvs.width - padLeft - 10;
     const ratio = Math.max(0, Math.min(w, (e.clientX - rect.left) * (cvs.width / rect.width) - padLeft)) / w;
-    const sPt = safeRouteData.path[Math.round(ratio * (safeRouteData.path.length - 1))];
-    const fPt = fastRouteData.path[Math.round(ratio * (fastRouteData.path.length - 1))];
+    const sPt = safeRouteData.path[Math.round(ratio * (safeRouteData.path.length - 1))], fPt = fastRouteData.path[Math.round(ratio * (fastRouteData.path.length - 1))];
     document.getElementById('chartHoverInfo').innerHTML = `<span style="color:#00FFAA; margin-right:12px;">🟢 БЕЗП: ${sPt.alt > 0 ? '+' : ''}${sPt.alt}м (${Math.round(ratio * safeRouteData.totalDist)}км)</span><span style="color:#FF2E38;">🔴 ШВИД: ${fPt.alt > 0 ? '+' : ''}${fPt.alt}м (${Math.round(ratio * fastRouteData.totalDist)}км)</span>`;
     renderDualElevationChart(ratio);
 });
 cvs.addEventListener('mouseleave', () => { resetChartHoverReadout(); renderDualElevationChart(-1); });
 
-// ============================================================================
-// 12. СИСТЕМА АКАУНТІВ (POSTGRESQL API)
-// ============================================================================
+// 12. АКАУНТИ ТА СИНХРОНІЗАЦІЯ
 let currentUser = null, authTabMode = 'login', autoSaveTimer = null, syncToastTimer = null, sessionToken = null;
-
 function authHeaders(extra = {}) { return sessionToken ? { ...extra, Authorization: `Bearer ${sessionToken}` } : extra; }
 function clearLocalSession() { currentUser = null; sessionToken = null; renderAuthUI(false); }
 
@@ -1421,7 +1472,7 @@ async function saveRouteToAccount(showToast = true) {
             method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ username: currentUser, pointA: ptA ? { lat: ptA.lat, lon: ptA.lon } : null, pointB: ptB ? { lat: ptB.lat, lon: ptB.lon } : null })
         });
-        if (res.status === 401) { clearLocalSession(); showSyncToast('Сесія завершилась, увійдіть знову'); return; }
+        if (res.status === 401) return (clearLocalSession(), showSyncToast('Сесія завершилась, увійдіть знову'));
         if (res.ok) { updateModalSyncView(ptA, ptB); if (showToast) showSyncToast('Маршрут збережено в PostgreSQL 💾'); }
     } catch (e) { console.error('Помилка звернення до сервера БД:', e); }
 }
@@ -1430,7 +1481,7 @@ async function loadRouteFromAccount(autoBuild = true) {
     if (!currentUser) return;
     try {
         const res = await fetch(`/api/load-route/${encodeURIComponent(currentUser)}`, { headers: authHeaders() });
-        if (res.status === 401) { clearLocalSession(); showSyncToast('Сесія завершилась, увійдіть знову'); return; }
+        if (res.status === 401) return (clearLocalSession(), showSyncToast('Сесія завершилась, увійдіть знову'));
         const data = await res.json();
         if (res.ok && data.success) {
             if (data.pointA || data.pointB) { applyCloudRoutePoints(data.pointA, data.pointB, autoBuild); showSyncToast(`Маршрут завантажено з PostgreSQL (${currentUser})`); }
@@ -1447,7 +1498,6 @@ function updateModalSyncView(a, b) {
 }
 
 async function checkAuthSession() { renderAuthUI(false); }
-
 function renderAuthUI(isLoggedIn, username = '') {
     const btnText = document.getElementById('accountBtnText'), btnAccount = document.getElementById('btnAccount');
     const dotAccount = document.getElementById('accountDot'), loggedOutView = document.getElementById('authLoggedOutView');
@@ -1482,13 +1532,11 @@ function initAccountModal() {
         tabLogin.onclick = () => { authTabMode = 'login'; tabLogin.classList.add('active'); tabRegister.classList.remove('active'); btnSubmit.innerText = 'УВІЙТИ В АКАУНТ'; clearMsgs(); };
         tabRegister.onclick = () => { authTabMode = 'register'; tabRegister.classList.add('active'); tabLogin.classList.remove('active'); btnSubmit.innerText = 'СТВОРИТИ АКАУНТ'; clearMsgs(); };
     }
-
     if (authForm) {
         authForm.onsubmit = async (e) => {
             e.preventDefault(); clearMsgs();
             const u = document.getElementById('authUsername')?.value.trim() || '', p = document.getElementById('authPassword')?.value.trim() || '';
-            if (u.length < 3) return showErr('Логін має містити щонайменше 3 символи');
-            if (p.length < 3) return showErr('Пароль має містити щонайменше 3 символи');
+            if (u.length < 3 || p.length < 3) return showErr('Логін та пароль мають містити щонайменше 3 символи');
             btnSubmit.disabled = true; btnSubmit.innerText = 'ОБРОБКА...';
             try {
                 const res = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p, mode: authTabMode, pointA: ptA, pointB: ptB }) });
@@ -1505,109 +1553,65 @@ function initAccountModal() {
             finally { btnSubmit.disabled = false; btnSubmit.innerText = authTabMode === 'register' ? 'СТВОРИТИ АКАУНТ' : 'УВІЙТИ В АКАУНТ'; }
         };
     }
-
     if (btnLogout) btnLogout.onclick = () => { fetch('/api/logout', { method: 'POST', headers: authHeaders() }).catch(() => {}); clearLocalSession(); modal.style.display = 'none'; showSyncToast('Ви вийшли з акаунту'); };
     if (btnSaveCurrent) btnSaveCurrent.onclick = () => { if (!ptA && !ptB) return alert('Спочатку оберіть хоча б одну точку на мапі!'); saveRouteToAccount(true); };
     if (btnLoadSaved) btnLoadSaved.onclick = () => { loadRouteFromAccount(true); modal.style.display = 'none'; };
 }
 
-// ============================================================================
-// 13. СИМУЛЯТОР ТОРНАДО / ПИЛОВИХ БУР ТА ПОГОДНА СТАНЦІЯ МАРСА
-// ============================================================================
-const activeStormLayers = new Map();
-const stormTextureCache = new Map();
-
+// 13. БУРІ ТА ПОГОДА
+const activeStormLayers = new Map(), stormTextureCache = new Map();
 function injectStormCloudStyles() {
     if (document.getElementById('stormCloudDynamicStyles')) return;
     const style = document.createElement('style');
     style.id = 'stormCloudDynamicStyles';
     style.textContent = `
-        .storm-tornado-img {
-            width: 100%;
-            height: 100%;
-            display: block;
-            transform-origin: 50% 50%;
-            mix-blend-mode: normal !important;
-            filter: drop-shadow(0 8px 22px rgba(10, 14, 24, 0.72)) contrast(1.22) brightness(1.06) !important;
-            animation: stormTornadoSpin 14s linear infinite;
-            pointer-events: none !important;
-        }
-        @keyframes stormTornadoSpin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-        }
-        .storm-eye-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #0F172A;
-            border: 2px solid #F8FAFC;
-            box-shadow: 0 0 10px rgba(255, 87, 34, 0.9);
-            cursor: pointer;
-        }
+        .storm-tornado-img { width: 100%; height: 100%; display: block; transform-origin: 50% 50%; mix-blend-mode: normal !important; filter: drop-shadow(0 8px 22px rgba(10, 14, 24, 0.72)) contrast(1.22) brightness(1.06) !important; animation: stormTornadoSpin 14s linear infinite; pointer-events: none !important; }
+        @keyframes stormTornadoSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .storm-eye-dot { width: 10px; height: 10px; border-radius: 50%; background: #0F172A; border: 2px solid #F8FAFC; box-shadow: 0 0 10px rgba(255, 87, 34, 0.9); cursor: pointer; }
     `;
     document.head.appendChild(style);
 }
 
 function makeStormTextureUrl(id) {
     if (stormTextureCache.has(id)) return stormTextureCache.get(id);
-    let h = 2166136261;
-    const s = String(id || 'mars_tornado');
+    let h = 2166136261; const s = String(id || 'mars_tornado');
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
     let a = h >>> 0;
     const rand = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-
     const G = 64, perm = new Float32Array(G * G);
     for (let i = 0; i < G * G; i++) perm[i] = rand();
-
     const noise2 = (x, y) => {
         const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
-        const x0 = xi & (G - 1), x1 = (xi + 1) & (G - 1), y0 = yi & (G - 1), y1 = (yi + 1) & (G - 1);
-        return (perm[y0 * G + x0] * (1 - su) + perm[y0 * G + x1] * su) * (1 - sv) + (perm[y1 * G + x0] * (1 - su) + perm[y1 * G + x1] * su) * sv;
+        return (perm[(yi & 63) * G + (xi & 63)] * (1 - su) + perm[(yi & 63) * G + ((xi + 1) & 63)] * su) * (1 - sv) + (perm[((yi + 1) & 63) * G + (xi & 63)] * (1 - su) + perm[((yi + 1) & 63) * G + ((xi + 1) & 63)] * su) * sv;
     };
     const fbm = (x, y) => { let val = 0, amp = 0.5, freq = 1; for (let i = 0; i < 4; i++) { val += amp * noise2(x * freq, y * freq); freq *= 2.05; amp *= 0.5; } return val; };
     const smoothstep = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 
-    const N = 256, cvs = document.createElement('canvas');
-    cvs.width = N; cvs.height = N;
+    const N = 256, cvs = document.createElement('canvas'); cvs.width = N; cvs.height = N;
     const ctx = cvs.getContext('2d'), imgData = ctx.createImageData(N, N), data = imgData.data;
-
-    const arms = 3 + Math.floor(rand() * 2), dir = rand() < 0.5 ? 1 : -1;
-    const ox = rand() * 30, oy = rand() * 30, stretchX = 0.86 + rand() * 0.28, stretchY = 0.86 + rand() * 0.28;
-    const rotAngle = rand() * Math.PI * 2, cosR = Math.cos(rotAngle), sinR = Math.sin(rotAngle);
+    const arms = 3 + Math.floor(rand() * 2), dir = rand() < 0.5 ? 1 : -1, ox = rand() * 50, oy = rand() * 50;
+    const stretchX = 0.86 + rand() * 0.28, stretchY = 0.86 + rand() * 0.28, rotAngle = rand() * Math.PI * 2, cosR = Math.cos(rotAngle), sinR = Math.sin(rotAngle);
 
     for (let py = 0; py < N; py++) {
         for (let px = 0; px < N; px++) {
             const nx = (px - N / 2) / (N / 2), ny = (py - N / 2) / (N / 2);
             const rx = (nx * cosR - ny * sinR) / stretchX, ry = (nx * sinR + ny * cosR) / stretchY, r = Math.hypot(rx, ry);
             if (r >= 1.06) continue;
-
             const shapeWarp = fbm(nx * 2.2 + ox, ny * 2.2 + oy) * 0.48 + fbm(nx * 4.8 - oy, ny * 4.8 + ox) * 0.24;
             const rEdge = r / (0.58 + shapeWarp);
             if (rEdge >= 1.0) continue;
-
-            const ang = Math.atan2(ry, rx);
-            const logSpiral = ang + dir * (-5.6 * Math.log(r + 0.055) + 2.4 * r);
-            const warpField = fbm(nx * 3.4 + ox, ny * 3.4 + oy);
+            const ang = Math.atan2(ry, rx), logSpiral = ang + dir * (-5.6 * Math.log(r + 0.055) + 2.4 * r);
             const streak = fbm(Math.cos(logSpiral) * 2.6 + r * 6.0 + ox, Math.sin(logSpiral) * 2.6 + r * 6.0 + oy);
-
-            const spiralArm = Math.pow(0.5 + 0.5 * Math.cos(arms * logSpiral + warpField * 3.4), 1.45);
-            const eyewall = Math.exp(-((r - 0.125) * (r - 0.125)) / 0.0028);
-            const eyeHole = smoothstep(0.03, 0.10, r);
-
+            const spiralArm = Math.pow(0.5 + 0.5 * Math.cos(arms * logSpiral + fbm(nx * 3.4 + ox, ny * 3.4 + oy) * 3.4), 1.45);
+            const eyewall = Math.exp(-((r - 0.125) * (r - 0.125)) / 0.0028), eyeHole = smoothstep(0.03, 0.10, r);
             const cloudBand = Math.max(0, Math.min(1, (0.62 * spiralArm + 0.45 * (streak - 0.25) + 0.85 * eyewall) * (0.25 + 0.75 * eyeHole)));
             const funnelDarkness = (1.0 - eyeHole) * 0.9 + (1.0 - spiralArm) * 0.45 * smoothstep(0.65, 0.08, r);
-
-            const edgeAlpha = smoothstep(1.0, 0.22, rEdge);
-            const coreAlpha = Math.max(0.85 * (1 - eyeHole), 0.35 + 0.65 * cloudBand, 0.55 * funnelDarkness);
+            const edgeAlpha = smoothstep(1.0, 0.22, rEdge), coreAlpha = Math.max(0.85 * (1 - eyeHole), 0.35 + 0.65 * cloudBand, 0.55 * funnelDarkness);
             const alpha = Math.max(0, Math.min(255, Math.round(255 * edgeAlpha * Math.min(1, coreAlpha))));
-
-            const dustRim = smoothstep(0.35, 0.92, r) * spiralArm * 0.35;
-            const lum = 30 + 214 * cloudBand - 22 * funnelDarkness;
-            const idx = (py * N + px) * 4;
-            data[idx]     = Math.max(0, Math.min(255, Math.round(lum + 34 * dustRim - 8 * (1 - cloudBand))));
-            data[idx + 1] = Math.max(0, Math.min(255, Math.round(lum + 8 * dustRim + 4 * cloudBand)));
-            data[idx + 2] = Math.max(0, Math.min(255, Math.round(lum - 16 * dustRim + 16 * cloudBand)));
+            const dustRim = smoothstep(0.35, 0.92, r) * spiralArm * 0.35, lum = 30 + 214 * cloudBand - 22 * funnelDarkness, idx = (py * N + px) * 4;
+            data[idx] = Math.min(255, Math.max(0, Math.round(lum + 34 * dustRim - 8 * (1 - cloudBand))));
+            data[idx + 1] = Math.min(255, Math.max(0, Math.round(lum + 8 * dustRim + 4 * cloudBand)));
+            data[idx + 2] = Math.min(255, Math.max(0, Math.round(lum - 16 * dustRim + 16 * cloudBand)));
             data[idx + 3] = alpha;
         }
     }
@@ -1627,19 +1631,12 @@ function ensureStormMotionState(st) {
     if (!Array.isArray(st._trail)) st._trail = [{ lat: st.lat, lon: st.lon }];
 }
 
-function calculateShortestMarsDistance(lat1, lon1, lat2, lon2) {
-    const dLon = ((lon2 - lon1 + 180) % 360 + 360) % 360 - 180, toRad = Math.PI / 180;
-    const a = Math.sin((lat2 - lat1) * toRad / 2) ** 2 + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon * toRad / 2) ** 2;
-    return 2 * MARS_RADIUS_KM * Math.atan2(Math.sqrt(Math.max(0, Math.min(1, a))), Math.sqrt(Math.max(0, 1 - a)));
-}
-
 window.isPointInAnyActiveStorm = function(lat, lon, extraMarginKm = 0) {
     if (!MARS_STORM_STATE.active || !MARS_STORM_STATE.storms || MARS_STORM_STATE.storms.length === 0) return false;
     for (const st of MARS_STORM_STATE.storms) {
         const distKm = calculateShortestMarsDistance(lat, lon, st.lat, st.lon);
         if (distKm > st.radiusKm * 1.25 + extraMarginKm) continue;
-        const seed = typeof st._seed === 'number' ? st._seed : 0;
-        const brng = seed ? getMarsBearingRad(st.lat, st.lon, lat, lon) : 0;
+        const seed = typeof st._seed === 'number' ? st._seed : 0, brng = seed ? getMarsBearingRad(st.lat, st.lon, lat, lon) : 0;
         if (distKm <= st.radiusKm * getStormContourWobble(brng, seed) + extraMarginKm) return true;
     }
     return false;
@@ -1663,85 +1660,56 @@ window.update3DStormRings = function() {
         lat: st.lat, lng: normalizeLon(st.lon), maxR: (st.radiusKm / MARS_RADIUS_KM) * (180 / Math.PI) * 0.95,
         propagationSpeed: 3.2, repeatPeriod: 1400, color: () => 'rgba(226, 232, 240, 0.85)'
     })) : [];
-    myGlobe.ringsData(rings).ringLat('lat').ringLng('lng').ringMaxRadius('maxR')
-        .ringPropagationSpeed('propagationSpeed').ringRepeatPeriod('repeatPeriod').ringColor('color');
+    myGlobe.ringsData(rings).ringLat('lat').ringLng('lng').ringMaxRadius('maxR').ringPropagationSpeed('propagationSpeed').ringRepeatPeriod('repeatPeriod').ringColor('color');
 };
 
 window.update3DStormHtmlElements = function() {
     if (!myGlobe) return;
     const items = MARS_STORM_STATE.active ? MARS_STORM_STATE.storms.map(st => ({
-        id: st.id,
-        lat: st.lat,
-        lng: normalizeLon(st.lon),
-        imgUrl: makeStormTextureUrl(st.id),
-        label: `${st.regionName || st.name.split(' ')[0]} · ${Math.round(st.windSpeedMs)} м/с`
+        id: st.id, lat: st.lat, lng: normalizeLon(st.lon), imgUrl: makeStormTextureUrl(st.id), label: `${st.regionName || st.name.split(' ')[0]} · ${Math.round(st.windSpeedMs)} м/с`
     })) : [];
-
-    myGlobe
-        .htmlElementsData(items)
-        .htmlLat('lat')
-        .htmlLng('lng')
-        .htmlAltitude(0.025)
-        .htmlElement(d => {
-            const el = document.createElement('div');
-            el.style.pointerEvents = 'none';
-            el.innerHTML = `
-                <div style="display:flex; flex-direction:column; align-items:center; pointer-events:none;">
-                    <img src="${d.imgUrl}" style="width:76px; height:76px; animation:stormTornadoSpin 14s linear infinite; filter:drop-shadow(0 4px 14px rgba(0,0,0,0.85));" />
-                    <div class="storm-pill-badge" style="margin-top:2px;">🌪️ ${d.label}</div>
-                </div>
-            `;
-            return el;
-        });
+    myGlobe.htmlElementsData(items).htmlLat('lat').htmlLng('lng').htmlAltitude(0.025).htmlElement(d => {
+        const el = document.createElement('div'); el.style.pointerEvents = 'none';
+        el.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; pointer-events:none;"><img src="${d.imgUrl}" style="width:76px; height:76px; animation:stormTornadoSpin 14s linear infinite; filter:drop-shadow(0 4px 14px rgba(0,0,0,0.85));" /><div class="storm-pill-badge" style="margin-top:2px;">🌪️ ${d.label}</div></div>`;
+        return el;
+    });
 };
 
 function computeStormForecast(st) {
     ensureStormMotionState(st);
-    const points = [];
-    let curLat = st.lat, curLon = st.lon, curHeading = st.headingDeg;
-    const stepHours = 1.5;
-
+    const points = []; let curLat = st.lat, curLon = st.lon, curHeading = st.headingDeg; const stepHours = 1.5;
     for (let step = 1; step <= 20; step++) {
         const t = st._phase + step * 0.44;
-        const turn = Math.sin(t * 1.3 + st._seed) * 28 + Math.cos(t * 2.5 + st._seed * 1.7) * 18 + Math.sin(t * 0.7 + st._seed * 0.4) * 20;
-        curHeading = (curHeading + turn * 0.42 + 360) % 360;
-
+        curHeading = (curHeading + (Math.sin(t * 1.3 + st._seed) * 28 + Math.cos(t * 2.5 + st._seed * 1.7) * 18) * 0.42 + 360) % 360;
         const distKm = st.speedKmH * (0.75 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.8 + st._seed))) * stepHours;
         const radHeading = (curHeading * Math.PI) / 180, radLat = (curLat * Math.PI) / 180, dR = distKm / MARS_RADIUS_KM;
         const nextLat = Math.asin(Math.sin(radLat) * Math.cos(dR) + Math.cos(radLat) * Math.sin(dR) * Math.cos(radHeading)) / (Math.PI / 180);
         const deltaLon = Math.atan2(Math.sin(radHeading) * Math.sin(dR) * Math.cos(radLat), Math.cos(dR) - Math.sin(radLat) * Math.sin((nextLat * Math.PI) / 180)) / (Math.PI / 180);
-
-        curLat = Math.max(-75, Math.min(75, nextLat));
-        curLon = normalizeLon(curLon + deltaLon);
+        curLat = Math.max(-75, Math.min(75, nextLat)); curLon = normalizeLon(curLon + deltaLon);
         points.push({ lat: curLat, lon: curLon, hours: step * stepHours });
     }
     st.futureTrajectory = points;
 }
 
 let stormPhysicsTickCount = 0;
-
 function updateStormPhysics() {
     if (!MARS_STORM_STATE.active) return;
     const now = performance.now(), dtMs = now - MARS_STORM_STATE.lastTick;
     MARS_STORM_STATE.lastTick = now;
     if (dtMs <= 0 || dtMs > 10000) return;
-
     const dtHours = (dtMs / 3600000) * MARS_STORM_STATE.speedMultiplier;
+
     MARS_STORM_STATE.storms.forEach(st => {
         ensureStormMotionState(st);
         st._phase += 0.045 + Math.random() * 0.035;
-        const turn = Math.sin(st._phase * 1.3 + st._seed) * 14 + Math.cos(st._phase * 2.5 + st._seed * 1.7) * 9 + (Math.random() - 0.5) * 18;
-        st.headingDeg = (st.headingDeg + turn * 0.30 + 360) % 360;
-
+        st.headingDeg = (st.headingDeg + (Math.sin(st._phase * 1.3 + st._seed) * 14 + (Math.random() - 0.5) * 18) * 0.30 + 360) % 360;
         const distKm = st.speedKmH * (0.8 + 0.4 * Math.random()) * dtHours;
         const radHeading = (st.headingDeg * Math.PI) / 180, radLat = (st.lat * Math.PI) / 180, dR = distKm / MARS_RADIUS_KM;
         let nextLat = Math.asin(Math.sin(radLat) * Math.cos(dR) + Math.cos(radLat) * Math.sin(dR) * Math.cos(radHeading)) / (Math.PI / 180);
         const deltaLon = Math.atan2(Math.sin(radHeading) * Math.sin(dR) * Math.cos(radLat), Math.cos(dR) - Math.sin(radLat) * Math.sin((nextLat * Math.PI) / 180)) / (Math.PI / 180);
         const nextLon = normalizeLon(st.lon + deltaLon);
-
         if (nextLat > 72) { nextLat = 72; st.headingDeg = (180 - st.headingDeg + 360) % 360; }
         else if (nextLat < -72) { nextLat = -72; st.headingDeg = (180 - st.headingDeg + 360) % 360; }
-
         st.lat = nextLat; st.lon = nextLon;
         const lastTrail = st._trail[st._trail.length - 1];
         if (!lastTrail || Math.hypot(nextLat - lastTrail.lat, nextLon - lastTrail.lon) > 0.25) {
@@ -1753,8 +1721,7 @@ function updateStormPhysics() {
 
     renderStorms2D();
     if (is3DMode && myGlobe) { update3DStormRings(); update3DStormHtmlElements(); }
-    updateStormModalUI();
-    checkStormRouteCollisions();
+    updateStormModalUI(); checkStormRouteCollisions();
 
     stormPhysicsTickCount++;
     if (routeConfirmed && stormPhysicsTickCount % 2 === 0 && ptA && ptB && safeRouteData && hazardsAvoidanceActive && MARS_STORM_STATE.autoAvoidRoute) {
@@ -1764,11 +1731,7 @@ function updateStormPhysics() {
             const nearRoute = MARS_STORM_STATE.storms.some(st =>
                 safeRouteData.path.some((pt, i) => i % 4 === 0 && calculateShortestMarsDistance(pt.lat, pt.lon, st.lat, st.lon) <= st.outerRadiusKm + 200)
             );
-            if (nearRoute) {
-                MARS_STORM_STATE.lastAutoRerouteKey = stormKey;
-                navGridCache = {};
-                buildRoute(false);
-            }
+            if (nearRoute) { MARS_STORM_STATE.lastAutoRerouteKey = stormKey; navGridCache = {}; buildRoute(false); }
         }
     }
 }
@@ -1787,7 +1750,6 @@ window.renderStorms2D = function() {
         const ringBase = makeMarsCircleCoords(st.lat, st.lon, st.radiusKm, 42, st._seed);
         const radiusDeg = (st.outerRadiusKm / MARS_RADIUS_KM) * (180 / Math.PI);
         const dLon = radiusDeg / Math.max(0.18, Math.cos(st.lat * Math.PI / 180));
-
         let prevLon = st.lon;
         const unwrappedTraj = (st.futureTrajectory || []).map(pt => {
             prevLon += ((pt.lon - prevLon + 180) % 360 + 360) % 360 - 180;
@@ -1796,8 +1758,7 @@ window.renderStorms2D = function() {
         const stormImgUrl = makeStormTextureUrl(st.id);
 
         activeWorldOffsets.forEach(offset => {
-            const key = `${st.id}__${offset}`;
-            wantedKeys.add(key);
+            const key = `${st.id}__${offset}`; wantedKeys.add(key);
             const center = [st.lat, st.lon + offset * 360];
             const stormBounds = [[Math.max(-89.9, st.lat - radiusDeg), st.lon - dLon + offset * 360], [Math.min(89.9, st.lat + radiusDeg), st.lon + dLon + offset * 360]];
             const hazardCoords = ringBase.map(p => [p[0], p[1] + offset * 360]);
@@ -1806,43 +1767,20 @@ window.renderStorms2D = function() {
 
             const existing = activeStormLayers.get(key);
             if (existing) {
-                existing.satOverlay.setBounds(stormBounds);
-                existing.hazardRing.setLatLngs(hazardCoords);
-                existing.trajLine.setLatLngs(trajCoords);
-                existing.marker.setLatLng(center);
-                existing.marker.setPopupContent(popupHtml);
+                existing.satOverlay.setBounds(stormBounds); existing.hazardRing.setLatLngs(hazardCoords);
+                existing.trajLine.setLatLngs(trajCoords); existing.marker.setLatLng(center); existing.marker.setPopupContent(popupHtml);
                 return;
             }
-
-            const satOverlay = new StormImageOverlay(stormImgUrl, stormBounds, {
-                opacity: 0.94, interactive: false, pane: 'stormPane', alt: 'Торнадо на Марсі'
-            });
-
-            // Плашка відкривається ТІЛЬКИ по кліку всередині сірої зони (hazardRing) або центру
-            const hazardRing = L.polygon(hazardCoords, {
-                renderer: stormVectorRenderer, pane: 'stormPane', color: '#94A3B8',
-                fill: true, fillColor: '#94A3B8', fillOpacity: 0.001,
-                opacity: 0.48, weight: 1.5, dashArray: '5, 9', interactive: true
-            });
-            const trajLine = L.polyline(trajCoords, {
-                renderer: stormVectorRenderer, pane: 'stormPane', color: '#FFA000', weight: 2.2,
-                dashArray: '6, 6', opacity: 0.9, interactive: false
-            });
-            const stormPin = L.divIcon({
-                className: 'custom-pin',
-                html: `<div class="storm-vortex-pin"><div class="storm-eye-dot" title="${st.name}"></div><div class="storm-pill-badge">🌪️ ${st.regionName || st.name.split(' ')[0]} · ${Math.round(st.windSpeedMs)} м/с</div></div>`,
-                iconSize: [12, 12], iconAnchor: [6, 6]
-            });
+            const satOverlay = new StormImageOverlay(stormImgUrl, stormBounds, { opacity: 0.94, interactive: false, pane: 'stormPane', alt: 'Торнадо на Марсі' });
+            const hazardRing = L.polygon(hazardCoords, { renderer: stormVectorRenderer, pane: 'stormPane', color: '#94A3B8', fill: true, fillColor: '#94A3B8', fillOpacity: 0.001, opacity: 0.48, weight: 1.5, dashArray: '5, 9', interactive: true });
+            const trajLine = L.polyline(trajCoords, { renderer: stormVectorRenderer, pane: 'stormPane', color: '#FFA000', weight: 2.2, dashArray: '6, 6', opacity: 0.9, interactive: false });
+            const stormPin = L.divIcon({ className: 'custom-pin', html: `<div class="storm-vortex-pin"><div class="storm-eye-dot" title="${st.name}"></div><div class="storm-pill-badge">🌪️ ${st.regionName || st.name.split(' ')[0]} · ${Math.round(st.windSpeedMs)} м/с</div></div>`, iconSize: [12, 12], iconAnchor: [6, 6] });
             const marker = L.marker(center, { icon: stormPin, zIndexOffset: 500 });
             marker.bindPopup(popupHtml, { className: 'storm-leaflet-popup', offset: [0, -6], autoPan: false });
             marker.on('click', (e) => L.DomEvent.stopPropagation(e));
-            hazardRing.on('click', (e) => {
-                L.DomEvent.stopPropagation(e);
-                marker.openPopup();
-            });
+            hazardRing.on('click', (e) => { L.DomEvent.stopPropagation(e); marker.openPopup(); });
 
-            stormLayerGroup.addLayer(satOverlay); stormLayerGroup.addLayer(hazardRing);
-            stormLayerGroup.addLayer(trajLine); stormLayerGroup.addLayer(marker);
+            stormLayerGroup.addLayer(satOverlay); stormLayerGroup.addLayer(hazardRing); stormLayerGroup.addLayer(trajLine); stormLayerGroup.addLayer(marker);
             activeStormLayers.set(key, { satOverlay, hazardRing, trajLine, marker });
         });
     });
@@ -1868,10 +1806,7 @@ function checkStormRouteCollisions() {
             const distKm = calculateShortestMarsDistance(pt.lat, pt.lon, st.lat, st.lon);
             if (distKm > st.radiusKm * 1.25) continue;
             const brng = seed ? getMarsBearingRad(st.lat, st.lon, pt.lat, pt.lon) : 0;
-            if (distKm <= st.radiusKm * getStormContourWobble(brng, seed) && distKm < minDistance) {
-                minDistance = distKm;
-                threateningStorm = st;
-            }
+            if (distKm <= st.radiusKm * getStormContourWobble(brng, seed) && distKm < minDistance) { minDistance = distKm; threateningStorm = st; }
         }
     }
     if (threateningStorm) {
@@ -1880,13 +1815,9 @@ function checkStormRouteCollisions() {
             if (desc) desc.innerText = `${threateningStorm.name} перетинає розрахований шлях ровера (дистанція до ядра: ${Math.round(minDistance)} км). Вітер ${threateningStorm.windSpeedMs} м/с, τ=${threateningStorm.tau}.`;
         }
         const endpointsInside = ptA && ptB && (isPointInAnyActiveStorm(ptA.lat, ptA.lon, 0) || isPointInAnyActiveStorm(ptB.lat, ptB.lon, 0));
-        const stormKey = getActiveStormCacheKey();
-        const now = performance.now();
-        if (hazardsAvoidanceActive && MARS_STORM_STATE.autoAvoidRoute && !endpointsInside &&
-            stormKey !== MARS_STORM_STATE.lastAutoRerouteKey && (now - MARS_STORM_STATE.lastAutoRerouteTime > 5000)) {
-            MARS_STORM_STATE.lastAutoRerouteTime = now;
-            MARS_STORM_STATE.lastAutoRerouteKey = stormKey;
-            navGridCache = {};
+        const stormKey = getActiveStormCacheKey(), now = performance.now();
+        if (hazardsAvoidanceActive && MARS_STORM_STATE.autoAvoidRoute && !endpointsInside && stormKey !== MARS_STORM_STATE.lastAutoRerouteKey && (now - MARS_STORM_STATE.lastAutoRerouteTime > 5000)) {
+            MARS_STORM_STATE.lastAutoRerouteTime = now; MARS_STORM_STATE.lastAutoRerouteKey = stormKey; navGridCache = {};
             if (ptA && ptB) buildRoute(false);
         }
     } else {
@@ -2027,8 +1958,7 @@ window.openMarsWeatherModal = function() {
 function initWeatherAndStormModule() {
     injectStormCloudStyles();
     if (MARS_STORM_STATE.storms[0]) computeStormForecast(MARS_STORM_STATE.storms[0]);
-    renderStorms2D();
-    fetchMarsWeather();
+    renderStorms2D(); fetchMarsWeather();
     setInterval(fetchMarsWeather, 5 * 60 * 1000);
 
     const btnReal = document.getElementById('btnStormReal');
@@ -2095,13 +2025,12 @@ function initWeatherAndStormModule() {
     if (chkAuto) chkAuto.onchange = (e) => { MARS_STORM_STATE.autoAvoidRoute = e.target.checked; };
 }
 
-// ============================================================================
-// 14. СТАРТ ЗАСТОСУНКУ
-// ============================================================================
+// СТАРТ ЗАСТОСУНКУ
 syncWorldLayers(true);
 renderZonesList();
 setHazardVisibility(true);
 setSafeVisibility(true);
+setBasesVisibility(true);
 initAccountModal();
 checkAuthSession();
 initWeatherAndStormModule();

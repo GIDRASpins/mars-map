@@ -60,6 +60,10 @@
                 <span class="btn-dot dot-account" id="accountDot"></span>
                 <span id="accountBtnText">ВХІД / АКАУНТ</span>
             </button>
+
+            <button id="btnSosTop" class="btn-sos-hud" type="button" title="Екстрене перенаправлення з точки A до найближчої безпечної зони">
+                <span class="sos-pulse-dot"></span> SOS
+            </button>
         </div>
 
         <div class="view-toggles">
@@ -68,6 +72,9 @@
             </button>
             <button id="btnVisSafe" class="btn-toggle active-safe" title="Увімкнути/вимкнути відображення безпечних зон">
                 <span class="btn-dot dot-green"></span>БЕЗПЕЧНІ: ПОКАЗАНО
+            </button>
+            <button id="btnVisBases" class="btn-toggle active active-base" title="Увімкнути/вимкнути відображення марсіанських баз">
+                <span class="btn-dot dot-base"></span>БАЗИ: ПОКАЗАНО
             </button>
             <button id="btnToggleStorms" class="btn-toggle active active-storm" title="Увімкнути/вимкнути відображення пилових бур">
                 <span class="btn-dot dot-storm pulse-storm"></span>БУРІ: ПОКАЗАНО
@@ -120,64 +127,12 @@
             <button id="btnClearRoute" class="btn-sub">СКИНУТИ</button>
         </div>
 
-        <!-- БЛОК КЕРУВАННЯ ШАРАМИ ТА ЗОНАМИ МАРСА -->
-        <div class="zones-panel-section">
-            <div class="section-title-row">
-                <span class="tr-title">ШАРИ ЗОН ТА ВІДОБРАЖЕННЯ</span>
-                <span class="zone-total-counter" id="zoneTotalCount">30 ЗОН</span>
-            </div>
+        <!-- Кнопка екстреного перенаправлення SOS -->
+        <button id="btnSosSidebar" class="btn-sos-main" type="button" title="Перенаправити маршрут з точки A до найближчої безпечної зони">
+            🆘 SOS: ДО НАЙБЛИЖЧОЇ БЕЗПЕЧНОЇ ЗОНИ
+        </button>
 
-            <!-- Головні тумблери вмикання/вимикання відображення -->
-            <div class="visibility-switches">
-                <div class="zone-switch-card hazard-card">
-                    <div class="switch-info">
-                        <span class="zone-indicator-pill red-pill" id="hazardCountPill">НЕБЕЗПЕЧНІ ЗОНИ (16)</span>
-                        <span class="switch-subtext">Каньйони, кальдери, урвища, хаоси</span>
-                    </div>
-                    <button id="switchToggleHazards" class="switch-btn active hazard-switch" title="Увімкнути/вимкнути відображення небезпечних зон">
-                        <span class="switch-knob"></span>
-                    </button>
-                </div>
-
-                <div class="zone-switch-card safe-card">
-                    <div class="switch-info">
-                        <span class="zone-indicator-pill green-pill" id="safeCountPill">БЕЗПЕЧНІ РІВНИНИ (14)</span>
-                        <span class="switch-subtext">Базальтові низовини, дна озер</span>
-                    </div>
-                    <button id="switchToggleSafe" class="switch-btn active safe-switch" title="Увімкнути/вимкнути відображення безпечних зон">
-                        <span class="switch-knob"></span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Каталог та швидкий перехід до зон -->
-            <div class="zone-explorer">
-                <div class="zone-filter-tabs">
-                    <button class="z-tab active" data-filter="all" id="tabFilterAll">ВСІ (30)</button>
-                    <button class="z-tab" data-filter="hazard" id="tabFilterHaz">НЕБЕЗПЕЧНІ (16)</button>
-                    <button class="z-tab" data-filter="safe" id="tabFilterSafe">БЕЗПЕЧНІ (14)</button>
-                </div>
-                <div class="zone-quick-search">
-                    <input type="text" id="zoneFilterInput" placeholder="Швидкий фільтр зони...">
-                </div>
-                <div class="zones-scroll-list" id="zonesListContainer"></div>
-            </div>
-        </div>
-
-        <!-- Готові тестові маршрути -->
-        <div class="test-routes">
-            <span class="tr-title">ШВИДКІ ТЕСТИ МАРШРУТІВ:</span>
-            <div class="tr-chips">
-                <button class="tr-chip" onclick="setPresetRoute(-6.5, -89.0, -14.5, -34.0)">Траверс каньйонів Долини Марінера</button>
-                <button class="tr-chip" onclick="setPresetRoute(22.0, -160.0, 18.4, -133.8)">З рівнини Амазонія до вулкану Олімп</button>
-                <button class="tr-chip" onclick="setPresetRoute(18.4, 77.3, 13.8, 87.4)">З озера Єзеро до рівнини Ісіди</button>
-                <button class="tr-chip" onclick="setPresetRoute(25.0, 120.0, 5.0, 160.0)">Шлях через низовину до рівнини Елізій</button>
-                <button class="tr-chip" onclick="setPresetRoute(-9.1, -99.4, -11.6, -62.8)">Через Лабіринт Ночі до Копратес</button>
-                <button class="tr-chip" onclick="setPresetRoute(14.0, 165.0, 18.0, -165.0)">🌐 Через край мапи (Елізій ↔ Амазонія)</button>
-            </div>
-        </div>
-
-        <!-- Звіт розрахованого маршруту -->
+        <!-- Звіт розрахованого маршруту (ТІЛЬКИ В БОКОВОМУ МЕНЮ) -->
         <div id="routeReport" class="route-report" style="display: none;">
             <div id="scannerDiagnosis" class="scanner-status-box">Сканування...</div>
             
@@ -207,6 +162,75 @@
                     <span class="lbl">БЕЗПЕКА</span>
                     <span class="val" id="metricSafety">100%</span>
                 </div>
+                <div class="metric-item metric-time-card">
+                    <div class="metric-time-head">
+                        <span class="lbl">ЧАС МАРШРУТУ</span>
+                        <span class="time-penalty-pill" id="metricTimePenalty" style="display: none;">×2 У НЕБЕЗПЕЦІ</span>
+                    </div>
+                    <span class="val" id="metricTime">0 хв</span>
+                    <span class="metric-sub" id="metricTimeNote">Швидкість: 30 км/год</span>
+                </div>
+            </div>
+
+            <!-- Таймер проходження маршруту з множенням часу ×2 у небезпечних зонах -->
+            <div class="route-timer-box" id="routeTimerBox">
+                <div class="rt-head">
+                    <span class="rt-title">⏱ ТАЙМЕР МАРШРУТУ</span>
+                    <span class="rt-mult-badge" id="timerMultBadge">×1 ШТАТНО</span>
+                </div>
+                <div class="rt-clock-row">
+                    <span class="rt-clock" id="timerElapsed">00:00:00</span>
+                    <span class="rt-total" id="timerTotal">/ 00:00:00</span>
+                </div>
+                <div class="rt-zone-status" id="timerZoneStatus">Готовий до старту</div>
+                <div class="rt-breakdown" id="timerBreakdown">Звичайний: 00:00:00 · Небезпека: 00:00:00 × 2 = 00:00:00</div>
+                <div class="rt-progress-track" id="timerProgressTrack">
+                    <div class="rt-progress-fill" id="timerProgressFill"></div>
+                </div>
+                <div class="rt-controls">
+                    <button id="btnTimerPlayPause" class="rt-btn rt-btn-play" type="button">⏸ ПАУЗА</button>
+                    <button id="btnTimerReset" class="rt-btn rt-btn-reset" type="button">↺ СПОЧАТКУ</button>
+                </div>
+            </div>
+
+            <!-- Калькулятор припасів: кисень, бензин і окремо вода -->
+            <div class="supply-calc-box" id="supplyCalcBox">
+                <div class="sc-calc-head">
+                    <span class="sc-calc-title">📦 ПРИПАСИ НА МАРШРУТ</span>
+                    <div class="crew-stepper" title="Кількість членів екіпажу">
+                        <span class="crew-lbl">Екіпаж:</span>
+                        <button id="btnCrewMinus" class="crew-btn" type="button">−</button>
+                        <span id="supplyCrewVal" class="crew-val">2</span>
+                        <button id="btnCrewPlus" class="crew-btn" type="button">+</button>
+                    </div>
+                </div>
+
+                <div class="supply-grid">
+                    <div class="supply-card supply-o2">
+                        <span class="supply-lbl">🫧 КИСЕНЬ</span>
+                        <span class="supply-val" id="supplyO2Val">0.00 кг</span>
+                        <span class="supply-sub" id="supplyO2Sub">0 л O₂</span>
+                    </div>
+                    <div class="supply-card supply-fuel">
+                        <span class="supply-lbl">⛽ БЕНЗИН</span>
+                        <span class="supply-val" id="supplyFuelVal">0 л</span>
+                        <span class="supply-sub" id="supplyFuelSub">0.35 л/км</span>
+                    </div>
+                </div>
+
+                <!-- Окремий блок для води -->
+                <div class="supply-water-block">
+                    <div class="sw-head">
+                        <span class="sw-title">💧 ВОДА (ОКРЕМО)</span>
+                        <span class="sw-val" id="supplyWaterVal">0.0 л</span>
+                    </div>
+                    <div class="sw-sub" id="supplyWaterSub">Питна: 0.0 л · Технічна/охолодження: 0.0 л</div>
+                </div>
+
+                <label class="supply-reserve-row">
+                    <input type="checkbox" id="chkSupplyReserve" checked>
+                    <span>Врахувати +15% аварійного запасу</span>
+                </label>
             </div>
 
             <!-- Картки висот -->
@@ -222,6 +246,7 @@
                         <div>МАКС: <span id="elevSafeMax">0 м</span></div>
                     </div>
                     <div class="elev-climb">ПЕРЕПАД: <span id="elevSafeClimb">+0 / -0 м</span></div>
+                    <div class="elev-climb">ЧАС: <span id="elevSafeTime">0 хв</span></div>
                 </div>
 
                 <div class="elev-card elev-fast-card" onclick="setActiveRoute('fast')">
@@ -235,6 +260,7 @@
                         <div>МАКС: <span id="elevFastMax">0 м</span></div>
                     </div>
                     <div class="elev-climb">ПЕРЕПАД: <span id="elevFastClimb">+0 / -0 м</span></div>
+                    <div class="elev-climb">ЧАС: <span id="elevFastTime">0 хв</span></div>
                 </div>
             </div>
 
@@ -251,11 +277,78 @@
                 <canvas id="elevationCanvas" width="330" height="120"></canvas>
             </div>
         </div>
+
+        <!-- БЛОК КЕРУВАННЯ ШАРАМИ ТА ЗОНАМИ МАРСА -->
+        <div class="zones-panel-section">
+            <div class="section-title-row">
+                <span class="tr-title">ШАРИ ЗОН ТА ВІДОБРАЖЕННЯ</span>
+                <span class="zone-total-counter" id="zoneTotalCount">30 ЗОН</span>
+            </div>
+
+            <!-- Головні тумблери вмикання/вимикання відображення -->
+            <div class="visibility-switches">
+                <div class="zone-switch-card hazard-card">
+                    <div class="switch-info">
+                        <span class="zone-indicator-pill red-pill" id="hazardCountPill">НЕБЕЗПЕЧНІ ЗОНИ (16)</span>
+                        <span class="switch-subtext">Каньйони, кальдери, урвища, хаоси</span>
+                    </div>
+                    <button id="switchToggleHazards" class="switch-btn active hazard-switch" title="Увімкнути/вимкнути відображення небезпечних зон">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+
+                <div class="zone-switch-card safe-card">
+                    <div class="switch-info">
+                        <span class="zone-indicator-pill green-pill" id="safeCountPill">БЕЗПЕЧНІ РІВНИНИ (14)</span>
+                        <span class="switch-subtext">Базальтові низовини, дна озер</span>
+                    </div>
+                    <button id="switchToggleSafe" class="switch-btn active safe-switch" title="Увімкнути/вимкнути відображення безпечних зон">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+
+                <div class="zone-switch-card base-card">
+                    <div class="switch-info">
+                        <span class="zone-indicator-pill base-pill" id="baseCountPill">МАРСІАНСЬКІ БАЗИ (14)</span>
+                        <span class="switch-subtext">Опорні станції, укриття, маяки</span>
+                    </div>
+                    <button id="switchToggleBases" class="switch-btn active base-switch" title="Увімкнути/вимкнути відображення баз">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Каталог та швидкий перехід до зон і баз -->
+            <div class="zone-explorer">
+                <div class="zone-filter-tabs">
+                    <button class="z-tab active" data-filter="all" id="tabFilterAll">ВСІ (30)</button>
+                    <button class="z-tab" data-filter="hazard" id="tabFilterHaz">НЕБЕЗПЕЧНІ (16)</button>
+                    <button class="z-tab" data-filter="safe" id="tabFilterSafe">БЕЗПЕЧНІ (14)</button>
+                    <button class="z-tab" data-filter="base" id="tabFilterBases">БАЗИ (14)</button>
+                </div>
+                <div class="zone-quick-search">
+                    <input type="text" id="zoneFilterInput" placeholder="Швидкий фільтр зони або бази...">
+                </div>
+                <div class="zones-scroll-list" id="zonesListContainer"></div>
+            </div>
+        </div>
+
+        <!-- Готові тестові маршрути -->
+        <div class="test-routes">
+            <span class="tr-title">ШВИДКІ ТЕСТИ МАРШРУТІВ:</span>
+            <div class="tr-chips">
+                <button class="tr-chip" onclick="setPresetRoute(-6.5, -89.0, -14.5, -34.0)">Траверс каньйонів Долини Марінера</button>
+                <button class="tr-chip" onclick="setPresetRoute(22.0, -160.0, 18.4, -133.8)">З рівнини Амазонія до вулкану Олімп</button>
+                <button class="tr-chip" onclick="setPresetRoute(18.4, 77.3, 13.8, 87.4)">З озера Єзеро до рівнини Ісіди</button>
+                <button class="tr-chip" onclick="setPresetRoute(25.0, 120.0, 5.0, 160.0)">Шлях через низовину до рівнини Елізій</button>
+                <button class="tr-chip" onclick="setPresetRoute(-9.1, -99.4, -11.6, -62.8)">Через Лабіринт Ночі до Копратес</button>
+                <button class="tr-chip" onclick="setPresetRoute(14.0, 165.0, 18.0, -165.0)">🌐 Через край мапи (Елізій ↔ Амазонія)</button>
+            </div>
+        </div>
     </aside>
 
     <!-- Перемикач 2D / 3D -->
     <button id="btnToggleView" class="view-switch-card" type="button" title="Перемкнути на 3D карту" aria-label="Перемкнути на 3D карту">
-        <!-- Зображення 3D-моделі (показується, коли активна 2D-карта) -->
         <div class="view-preview preview-3d">
             <svg viewBox="0 0 84 84" width="100%" height="100%" aria-hidden="true">
                 <defs>
@@ -295,7 +388,6 @@
             <span class="view-badge">3D МОДЕЛЬ</span>
         </div>
 
-        <!-- Зображення 2D-карти (показується, коли активний 3D-глобус) -->
         <div class="view-preview preview-2d">
             <svg viewBox="0 0 84 84" width="100%" height="100%" aria-hidden="true">
                 <rect width="84" height="84" fill="#B85335"/>

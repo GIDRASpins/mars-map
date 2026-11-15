@@ -386,7 +386,7 @@ function climatologyStorms(msd, ls, nowMs) {
   const season = ls >= 180 && ls <= 330;
   for (let hh = curHour - LIFE_H + 1; hh <= curHour; hh++) {
     const r = rng(hh * 7919 + 13);
-    let n = Math.floor(r() * (season ? 3 : 2)) + (hh === curHour ? 1 : 0); // у поточну годину завжди стартує мінімум 1
+    let n = Math.floor(r() * (season ? 3 : 2)) + (hh === curHour ? 1 : 0);
     n = Math.min(n, season ? 3 : 2);
     for (let k = 0; k < n; k++) {
       const { t, i, w } = active[Math.floor(r() * active.length)];
@@ -429,13 +429,13 @@ app.get('/api/mars-weather', async (req, res) => {
   if (cachedMarsWeather && now - lastWeatherFetchTime < 5 * 60 * 1000) return res.json(cachedMarsWeather);
   const mt = marsTime(now), rems = await fetchRems();
   const storms = climatologyStorms(mt.msd, mt.ls, now);
-  storms.forEach(st => ensureStormImage(st.id)); // зображення створюється й зберігається одразу
+  storms.forEach(st => ensureStormImage(st.id));
   cachedMarsWeather = {
     success: true, updated_at: new Date(now).toISOString(),
     sol: mt.sol, ls: mt.ls, marsYear: mt.marsYear,
     season: mt.ls < 90 ? 'Північна весна (південна осінь)' : mt.ls < 180 ? 'Північне літо (південна зима)' : mt.ls < 270 ? 'Північна осінь (південна весна) — сезон бур' : 'Північна зима (південне літо) — сезон бур',
     stormSeason: mt.ls >= 180 && mt.ls <= 330,
-    ground: rems && rems.fresh ? rems : null, // REMS лише якщо дані свіжіші за 14 діб
+    ground: rems && rems.fresh ? rems : null,
     remsLastSeen: rems ? { date: rems.date, ageDays: rems.ageDays } : null,
     tau: Number((0.5 + (storms.length ? Math.max(...storms.map(s => s.tau)) * 0.1 : 0)).toFixed(2)),
     storms, stormSource: 'CLIMATOLOGY_MRO_MARCI',
